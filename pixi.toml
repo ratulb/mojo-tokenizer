@@ -8,8 +8,8 @@ channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
 platforms = ["linux-64"]
 [package]
 name = "mojo-tokenizer"
-version = "0.1.0"
-build = "mojo package src -o lib/mojo_tokenizer.mojopkg"
+#version = "0.1.0"
+#build = "mojo package src -o lib/mojo_tokenizer.mojopkg"
 [tasks]
 test = "mojo run -I lib tests/test_tokenizer.mojo"
 build = "mojo package src -o lib/mojo_tokenizer.mojopkg"
