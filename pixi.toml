@@ -3,22 +3,15 @@ name = "mojo-tokenizer"
 version = "0.1.0"
 description = "Pure Mojo tokenizer for LLM inference - BPE, tiktoken, HuggingFace compatible"
 authors = ["Atsentia"]
-#channels = ["conda-forge", "https://conda.modular.com/max"]
 channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
 platforms = ["linux-64"]
-
 preview = ["pixi-build"]
 
 [package]
 name = "mojo-tokenizer"
 version = "0.1.0"
-#build = "mojo package src -o lib/mojo_tokenizer.mojopkg"
-
-#[package.build]
-#backend = { name = "pixi-build-rattler-build", version = "*" }
 
 [package.build]
-#backend = { name = "pixi-build-mojo", version = "0.*" }
 backend = { name = "pixi-build-mojo", version = "*" }
 
 [package.host-dependencies]
@@ -31,21 +24,12 @@ mojo-compiler = "*"
 mojo-compiler = "*"
 
 [dependencies]
-mojo-compiler = "*"   # for local dev/testing
-
+mojo-compiler = "*"
+#mojo = "0.26.2.*"
+mojo = "==0.26.2"
 
 [tasks]
-test = "mojo run -I lib tests/test_tokenizer.mojo"
-build = "mojo package src -o lib/mojo_tokenizer.mojopkg"
-format = "mojo format src/"
+test    = "mojo run -I lib tests/test_tokenizer.mojo"
+build   = "mojo package src -o lib/mojo_tokenizer.mojopkg"
+format  = "mojo format src/"
 example = "mojo run examples/basic_usage.mojo"
-
-[dependencies]
-mojo = "0.26.2.*"
-
-[environments]
-#default = { features = ["dev"], solve-group = "default" }
-
-#dev     = { features = ["dev"], solve-group = "default" }
-
-#default = { features = ["dev"] }

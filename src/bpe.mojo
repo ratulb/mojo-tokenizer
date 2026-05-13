@@ -38,7 +38,7 @@ comptime SIMD_WIDTH: Int = 16
 
 
 @always_inline
-fn _is_boundary_byte(code: UInt8) -> Bool:
+def _is_boundary_byte(code: UInt8) -> Bool:
     """Check if byte is a word boundary (space or punctuation).
 
     Note: This is kept for backwards compatibility. The SIMD version
@@ -47,7 +47,7 @@ fn _is_boundary_byte(code: UInt8) -> Bool:
     return is_boundary_byte(code)
 
 
-fn _utf8_char_at(s: String, idx: Int) -> String:
+def _utf8_char_at(s: String, idx: Int) -> String:
     """Get the idx-th Unicode character from a string."""
     var ptr = s.as_bytes()
     var byte_pos = 0
@@ -141,7 +141,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
     var _use_backtrack: Bool
     """Whether to use O(n) backtracking BPE (Phase B optimization)."""
 
-    fn __init__(out self):
+    def __init__(out self):
         """Create an empty BPETokenizer."""
         self.vocab = Vocabulary()
         self.special_tokens = SpecialTokens()
@@ -163,7 +163,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         self._use_backtrack = False  # Enable after tables are built
         self._init_byte_mappings()
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         """Copy constructor."""
         self.vocab = copy.vocab.copy()
         self.special_tokens = copy.special_tokens.copy()
@@ -184,7 +184,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Phase B: Copy backtrack flag
         self._use_backtrack = copy._use_backtrack
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self.vocab = take.vocab^
         self.special_tokens = take.special_tokens^
@@ -205,7 +205,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Phase B: Move backtrack flag
         self._use_backtrack = take._use_backtrack
 
-    fn _init_byte_mappings(mut self):
+    def _init_byte_mappings(mut self):
         """Initialize byte-to-unicode mappings for BPE.
 
         Uses List for O(1) array access instead of Dict.
@@ -245,7 +245,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
                 n += 1
 
     @staticmethod
-    fn from_tiktoken(path: String) raises -> BPETokenizer:
+    def from_tiktoken(path: String) raises -> BPETokenizer:
         """
         Load a BPE tokenizer from tiktoken format.
 
@@ -280,7 +280,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         return tokenizer^
 
     @staticmethod
-    fn from_tiktoken_with_special(
+    def from_tiktoken_with_special(
         path: String,
         special: Dict[String, Int]
     ) raises -> BPETokenizer:
@@ -315,7 +315,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         return tokenizer^
 
     @staticmethod
-    fn from_huggingface(path: String) raises -> BPETokenizer:
+    def from_huggingface(path: String) raises -> BPETokenizer:
         """
         Load a BPE tokenizer from HuggingFace tokenizer.json format.
 
@@ -342,7 +342,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         tokenizer._use_backtrack = True
         return tokenizer^
 
-    fn _build_merge_cache(mut self):
+    def _build_merge_cache(mut self):
         """Build caches for fast token lookup.
 
         Phase 1: Populates the merge cache from vocabulary tokens.
@@ -359,7 +359,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Note: Merge cache not currently used (vocab.get_merge_rank() used instead)
         # Future: pre-populate MergeCache from vocab._merges for speed
 
-    fn _build_vocab_trie(mut self):
+    def _build_vocab_trie(mut self):
         """Build byte trie from vocabulary for O(n) direct lookup.
 
         Adds all vocabulary tokens to the standard ByteTrie.
@@ -386,7 +386,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
                 if len(token_text) > 0:
                     self._vocab_trie.insert_string(token_text, token_id)
 
-    fn encode(mut self, text: String) raises -> List[Int]:
+    def encode(mut self, text: String) raises -> List[Int]:
         """
         Encode text into BPE token IDs.
 
@@ -429,7 +429,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
         return result^
 
-    fn _encode_ordinary(mut self, text: String) raises -> List[Int]:
+    def _encode_ordinary(mut self, text: String) raises -> List[Int]:
         """
         Encode ordinary (non-special) text using BPE.
 
@@ -472,7 +472,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
         return result^
 
-    fn _split_into_words(self, text: String) -> List[String]:
+    def _split_into_words(self, text: String) -> List[String]:
         """Split text into words for word-level caching.
 
         Phase 4 Optimization: SIMD boundary detection.
@@ -539,7 +539,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
         return words^
 
-    fn _encode_word(mut self, word: String) raises -> List[Int]:
+    def _encode_word(mut self, word: String) raises -> List[Int]:
         """Encode a single word with caching and trie lookup.
 
         Lookup order (fastest to slowest):
@@ -597,7 +597,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
         return token_ids^
 
-    fn _bpe_encode(mut self, word: String) raises -> List[Int]:
+    def _bpe_encode(mut self, word: String) raises -> List[Int]:
         """Core BPE encoding algorithm.
 
         Optimizations (v0.4.0 Phase 1):
@@ -684,7 +684,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
         return result^
 
-    fn decode(self, tokens: List[Int]) raises -> String:
+    def decode(self, tokens: List[Int]) raises -> String:
         """
         Decode token IDs back into text.
 
@@ -761,7 +761,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
                     i += 1
         return result
 
-    fn encode_batch(mut self, texts: List[String]) raises -> List[List[Int]]:
+    def encode_batch(mut self, texts: List[String]) raises -> List[List[Int]]:
         """
         Encode multiple texts in batch.
 
@@ -778,7 +778,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
             results.append(self.encode(texts[i]))
         return results^
 
-    fn decode_batch(self, token_lists: List[List[Int]]) raises -> List[String]:
+    def decode_batch(self, token_lists: List[List[Int]]) raises -> List[String]:
         """
         Decode multiple token lists in batch.
 
@@ -793,11 +793,11 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
             results.append(self.decode(token_lists[i]))
         return results^
 
-    fn vocab_size(self) -> Int:
+    def vocab_size(self) -> Int:
         """Return the total vocabulary size including special tokens."""
         return self.vocab.size() + self.special_tokens.size()
 
-    fn add_special_token(mut self, text: String, id: Int):
+    def add_special_token(mut self, text: String, id: Int):
         """
         Add a special token to the tokenizer.
 
@@ -809,7 +809,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
     # Cache management methods
 
-    fn cache_hit_rate(self) -> Float64:
+    def cache_hit_rate(self) -> Float64:
         """
         Get the token cache hit rate.
 
@@ -819,7 +819,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         """
         return self._cache.hit_rate()
 
-    fn cache_stats(self) -> Tuple[Int, Int, Int]:
+    def cache_stats(self) -> Tuple[Int, Int, Int]:
         """
         Get cache statistics.
 
@@ -828,43 +828,43 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         """
         return Tuple(self._cache.hits(), self._cache.misses(), self._cache.size())
 
-    fn clear_cache(mut self):
+    def clear_cache(mut self):
         """Clear the token cache."""
         self._cache.clear()
 
-    fn reset_cache_stats(mut self):
+    def reset_cache_stats(mut self):
         """Reset cache hit/miss statistics."""
         self._cache.reset_stats()
 
-    fn set_cache_enabled(mut self, enabled: Bool):
+    def set_cache_enabled(mut self, enabled: Bool):
         """Enable or disable caching."""
         self._use_cache = enabled
 
-    fn is_cache_enabled(self) -> Bool:
+    def is_cache_enabled(self) -> Bool:
         """Check if caching is enabled."""
         return self._use_cache
 
     # Phase 2: Trie management methods
 
-    fn set_trie_enabled(mut self, enabled: Bool):
+    def set_trie_enabled(mut self, enabled: Bool):
         """Enable or disable trie lookup."""
         self._use_trie = enabled
 
-    fn is_trie_enabled(self) -> Bool:
+    def is_trie_enabled(self) -> Bool:
         """Check if trie lookup is enabled."""
         return self._use_trie
 
-    fn trie_size(self) -> Int:
+    def trie_size(self) -> Int:
         """Get number of tokens in the trie."""
         return self._vocab_trie.size()
 
-    fn trie_node_count(self) -> Int:
+    def trie_node_count(self) -> Int:
         """Get total number of nodes in the trie."""
         return self._vocab_trie.node_count()
 
     # Phase B: Backtrack encoder management methods
 
-    fn set_backtrack_enabled(mut self, enabled: Bool):
+    def set_backtrack_enabled(mut self, enabled: Bool):
         """Enable or disable O(n) backtracking BPE.
 
         Backtracking is only effective if tables are built.
@@ -875,15 +875,15 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         """
         self._use_backtrack = enabled and self.vocab.has_backtrack_tables()
 
-    fn is_backtrack_enabled(self) -> Bool:
+    def is_backtrack_enabled(self) -> Bool:
         """Check if backtracking BPE is enabled."""
         return self._use_backtrack
 
-    fn has_backtrack_tables(self) -> Bool:
+    def has_backtrack_tables(self) -> Bool:
         """Check if backtracking tables have been built."""
         return self.vocab.has_backtrack_tables()
 
-    fn backtrack_table_stats(self) -> Tuple[Int, Int]:
+    def backtrack_table_stats(self) -> Tuple[Int, Int]:
         """Get backtracking table statistics.
 
         Returns:
@@ -891,7 +891,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         """
         return Tuple(self.vocab.num_pairs(), self.vocab.size())
 
-    fn _bpe_encode_backtrack(self, word: String) raises -> List[Int]:
+    def _bpe_encode_backtrack(self, word: String) raises -> List[Int]:
         """Encode a word using O(n) backtracking algorithm.
 
         Phase B optimization: Uses backtracking instead of O(n²) merge loop.
@@ -912,7 +912,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Use direct backtracking (no copy of vocab/trie)
         return self._backtrack_encode_direct(byte_list)
 
-    fn _backtrack_encode_direct(self, text: List[UInt8]) -> List[Int]:
+    def _backtrack_encode_direct(self, text: List[UInt8]) -> List[Int]:
         """Direct O(n) backtracking encoder - avoids vocab/trie copy.
 
         This is the performance-critical path. By implementing the algorithm

@@ -15,16 +15,16 @@ struct SpecialToken(Copyable, Movable):
     var id: Int
     """The token ID."""
 
-    fn __init__(out self, text: String, id: Int):
+    def __init__(out self, text: String, id: Int):
         """Create a new special token."""
         self.text = text
         self.id = id
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         self.text = copy.text
         self.id = copy.id
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         self.text = take.text^
         self.id = take.id
 
@@ -38,16 +38,16 @@ struct TextSegment(Copyable, Movable):
     var is_special: Bool
     """Whether this is a special token."""
 
-    fn __init__(out self, text: String, is_special: Bool):
+    def __init__(out self, text: String, is_special: Bool):
         """Create a new text segment."""
         self.text = text
         self.is_special = is_special
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         self.text = copy.text
         self.is_special = copy.is_special
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         self.text = take.text^
         self.is_special = take.is_special
 
@@ -72,25 +72,25 @@ struct SpecialTokens(Copyable, Movable):
     var _tokens: List[SpecialToken]
     """List of all special tokens (for iteration)."""
 
-    fn __init__(out self):
+    def __init__(out self):
         """Create an empty special tokens manager."""
         self._text_to_id = Dict[String, Int]()
         self._id_to_text = Dict[Int, String]()
         self._tokens = List[SpecialToken]()
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         """Copy constructor."""
         self._text_to_id = copy._text_to_id.copy()
         self._id_to_text = copy._id_to_text.copy()
         self._tokens = copy._tokens.copy()
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self._text_to_id = take._text_to_id^
         self._id_to_text = take._id_to_text^
         self._tokens = take._tokens^
 
-    fn add(mut self, text: String, id: Int):
+    def add(mut self, text: String, id: Int):
         """
         Add a special token.
 
@@ -102,7 +102,7 @@ struct SpecialTokens(Copyable, Movable):
         self._id_to_text[id] = text
         self._tokens.append(SpecialToken(text, id))
 
-    fn get_id(self, text: String) -> Int:
+    def get_id(self, text: String) -> Int:
         """
         Get the ID for a special token.
 
@@ -119,7 +119,7 @@ struct SpecialTokens(Copyable, Movable):
                 return -1
         return -1
 
-    fn get_text(self, id: Int) -> String:
+    def get_text(self, id: Int) -> String:
         """
         Get the text for a special token ID.
 
@@ -136,19 +136,19 @@ struct SpecialTokens(Copyable, Movable):
                 return ""
         return ""
 
-    fn is_special(self, text: String) -> Bool:
+    def is_special(self, text: String) -> Bool:
         """Check if a token text is a special token."""
         return text in self._text_to_id
 
-    fn is_special_id(self, id: Int) -> Bool:
+    def is_special_id(self, id: Int) -> Bool:
         """Check if a token ID is a special token."""
         return id in self._id_to_text
 
-    fn size(self) -> Int:
+    def size(self) -> Int:
         """Return the number of special tokens."""
         return len(self._tokens)
 
-    fn split_on_special(self, text: String) -> List[TextSegment]:
+    def split_on_special(self, text: String) -> List[TextSegment]:
         """
         Split text on special tokens.
 
@@ -214,7 +214,7 @@ struct SpecialTokens(Copyable, Movable):
 
         return result^
 
-    fn clear(mut self):
+    def clear(mut self):
         """Clear all special tokens."""
         self._text_to_id = Dict[String, Int]()
         self._id_to_text = Dict[Int, String]()

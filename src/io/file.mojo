@@ -6,7 +6,7 @@ vocabulary files in various formats.
 """
 
 
-fn read_file(path: String) raises -> String:
+def read_file(path: String) raises -> String:
     """
     Read entire file contents as a string.
 
@@ -26,7 +26,7 @@ fn read_file(path: String) raises -> String:
         raise Error("Failed to read file '" + path + "': " + String(e))
 
 
-fn read_bytes(path: String) raises -> List[UInt8]:
+def read_bytes(path: String) raises -> List[UInt8]:
     """
     Read entire file contents as bytes.
 
@@ -50,7 +50,7 @@ fn read_bytes(path: String) raises -> List[UInt8]:
         raise Error("Failed to read file '" + path + "': " + String(e))
 
 
-fn read_lines(path: String) raises -> List[String]:
+def read_lines(path: String) raises -> List[String]:
     """
     Read file contents as a list of lines.
 
@@ -83,7 +83,7 @@ fn read_lines(path: String) raises -> List[String]:
     return lines^
 
 
-fn file_exists(path: String) -> Bool:
+def file_exists(path: String) -> Bool:
     """Check if a file exists."""
     try:
         with open(path, "r") as f:

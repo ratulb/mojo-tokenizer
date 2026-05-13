@@ -18,7 +18,7 @@ struct Token:
     var is_special: Bool
     """Whether this is a special token (e.g., [CLS], [SEP], <|endoftext|>)."""
 
-    fn __init__(out self, id: Int, text: String, is_special: Bool = False):
+    def __init__(out self, id: Int, text: String, is_special: Bool = False):
         """Create a new Token.
 
         Args:
@@ -30,7 +30,7 @@ struct Token:
         self.text = text
         self.is_special = is_special
 
-    fn __str__(self) -> String:
+    def __str__(self) -> String:
         """Return string representation of the token."""
         if self.is_special:
             return "Token(id=" + String(self.id) + ", text='" + self.text + "', special=True)"
@@ -46,7 +46,7 @@ trait Tokenizer:
     (BPE, WordPiece, SentencePiece, etc.).
     """
 
-    fn encode(mut self, text: String) raises -> List[Int]:
+    def encode(mut self, text: String) raises -> List[Int]:
         """
         Encode text into a list of token IDs.
 
@@ -64,7 +64,7 @@ trait Tokenizer:
         """
         ...
 
-    fn decode(self, tokens: List[Int]) raises -> String:
+    def decode(self, tokens: List[Int]) raises -> String:
         """
         Decode a list of token IDs back into text.
 
@@ -79,7 +79,7 @@ trait Tokenizer:
         """
         ...
 
-    fn vocab_size(self) -> Int:
+    def vocab_size(self) -> Int:
         """
         Return the vocabulary size.
 

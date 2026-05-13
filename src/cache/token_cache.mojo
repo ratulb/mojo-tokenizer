@@ -25,7 +25,7 @@ struct TokenCache(Movable):
     var _hits: Int
     var _misses: Int
 
-    fn __init__(out self, capacity: Int = 10000):
+    def __init__(out self, capacity: Int = 10000):
         """
         Create a token cache with given capacity.
 
@@ -39,7 +39,7 @@ struct TokenCache(Movable):
         self._hits = 0
         self._misses = 0
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self._cache = take._cache^
         self._access_order = take._access_order^
@@ -47,7 +47,7 @@ struct TokenCache(Movable):
         self._hits = take._hits
         self._misses = take._misses
 
-    fn get(mut self, key: String) -> Optional[List[Int]]:
+    def get(mut self, key: String) -> Optional[List[Int]]:
         """
         Get cached token IDs for a word.
 
@@ -67,7 +67,7 @@ struct TokenCache(Movable):
         self._misses += 1
         return None
 
-    fn put(mut self, key: String, var value: List[Int]):
+    def put(mut self, key: String, var value: List[Int]):
         """
         Cache token IDs for a word.
 
@@ -84,11 +84,11 @@ struct TokenCache(Movable):
         self._cache[key] = value^
         self._access_order.append(key)
 
-    fn contains(self, key: String) -> Bool:
+    def contains(self, key: String) -> Bool:
         """Check if key is in cache."""
         return key in self._cache
 
-    fn hit_rate(self) -> Float64:
+    def hit_rate(self) -> Float64:
         """
         Get cache hit rate.
 
@@ -100,34 +100,34 @@ struct TokenCache(Movable):
             return 0.0
         return Float64(self._hits) / Float64(total)
 
-    fn hits(self) -> Int:
+    def hits(self) -> Int:
         """Get total cache hits."""
         return self._hits
 
-    fn misses(self) -> Int:
+    def misses(self) -> Int:
         """Get total cache misses."""
         return self._misses
 
-    fn size(self) -> Int:
+    def size(self) -> Int:
         """Get current cache size."""
         return len(self._cache)
 
-    fn capacity(self) -> Int:
+    def capacity(self) -> Int:
         """Get cache capacity."""
         return self._capacity
 
-    fn clear(mut self):
+    def clear(mut self):
         """Clear all cached entries."""
         self._cache = Dict[String, List[Int]]()
         self._access_order = List[String]()
         # Don't reset hit/miss counts
 
-    fn reset_stats(mut self):
+    def reset_stats(mut self):
         """Reset hit/miss statistics."""
         self._hits = 0
         self._misses = 0
 
-    fn _move_to_front(mut self, key: String):
+    def _move_to_front(mut self, key: String):
         """Move key to front of access order (most recently used)."""
         # Simple approach: don't actually reorder, just append
         # Real LRU would remove and re-add, but this is faster
@@ -138,7 +138,7 @@ struct TokenCache(Movable):
         if len(self._access_order) > self._capacity * 2:
             self._compact_access_order()
 
-    fn _evict_lru(mut self):
+    def _evict_lru(mut self):
         """Evict entries to make room - bulk clear for O(1) amortized cost.
 
         CRITICAL OPTIMIZATION: Clear 50% of cache at once instead of one entry.
@@ -177,7 +177,7 @@ struct TokenCache(Movable):
         for key in keep_keys.keys():
             self._access_order.append(key)
 
-    fn _compact_access_order(mut self):
+    def _compact_access_order(mut self):
         """Remove duplicate entries in access order, keeping last occurrence."""
         var seen = Dict[String, Bool]()
         var new_order = List[String]()
@@ -209,22 +209,22 @@ struct MergeCache(Movable):
     var _ranks: Dict[UInt64, Int]  # hash(pair) -> rank
     var _size: Int
 
-    fn __init__(out self):
+    def __init__(out self):
         self._ranks = Dict[UInt64, Int]()
         self._size = 0
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self._ranks = take._ranks^
         self._size = take._size
 
-    fn add(mut self, first: String, second: String, rank: Int):
+    def add(mut self, first: String, second: String, rank: Int):
         """Add a merge rule."""
         var hash = self._hash_pair(first, second)
         self._ranks[hash] = rank
         self._size += 1
 
-    fn get_rank(self, first: String, second: String) -> Int:
+    def get_rank(self, first: String, second: String) -> Int:
         """
         Get merge rank for a token pair.
 
@@ -239,17 +239,17 @@ struct MergeCache(Movable):
                 return -1
         return -1
 
-    fn has_merge(self, first: String, second: String) -> Bool:
+    def has_merge(self, first: String, second: String) -> Bool:
         """Check if merge rule exists for pair."""
         var hash = self._hash_pair(first, second)
         return hash in self._ranks
 
-    fn size(self) -> Int:
+    def size(self) -> Int:
         """Get number of merge rules."""
         return self._size
 
     @always_inline
-    fn _hash_pair(self, a: String, b: String) -> UInt64:
+    def _hash_pair(self, a: String, b: String) -> UInt64:
         """
         Fast FNV-1a hash for token pair.
 

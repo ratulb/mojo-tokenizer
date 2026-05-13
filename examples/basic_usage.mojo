@@ -11,7 +11,7 @@ This example demonstrates:
 from mojo_tokenizer import BPETokenizer, Token
 
 
-fn main() raises:
+def main() raises:
     print("=== mojo-tokenizer Basic Usage ===\n")
 
     # Create a tokenizer

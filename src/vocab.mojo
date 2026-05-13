@@ -21,20 +21,20 @@ struct MergeRule(Copyable, Movable):
     var rank: Int
     """Priority rank (lower = higher priority, applied first)."""
 
-    fn __init__(out self, first: String, second: String, rank: Int):
+    def __init__(out self, first: String, second: String, rank: Int):
         """Create a new merge rule."""
         self.first = first
         self.second = second
         self.result = first + second
         self.rank = rank
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         self.first = copy.first
         self.second = copy.second
         self.result = copy.result
         self.rank = copy.rank
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         self.first = take.first^
         self.second = take.second^
         self.result = take.result^
@@ -85,7 +85,7 @@ struct Vocabulary(Copyable, Movable):
     var _backtrack_tables_built: Bool
     """Whether the backtracking tables have been built."""
 
-    fn __init__(out self):
+    def __init__(out self):
         """Create an empty vocabulary."""
         self._token_to_id = Dict[String, Int]()
         self._id_to_token = Dict[Int, String]()
@@ -98,7 +98,7 @@ struct Vocabulary(Copyable, Movable):
         self._next_prefix_match = List[Int]()
         self._backtrack_tables_built = False
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         """Copy constructor."""
         self._token_to_id = copy._token_to_id.copy()
         self._id_to_token = copy._id_to_token.copy()
@@ -111,7 +111,7 @@ struct Vocabulary(Copyable, Movable):
         self._next_prefix_match = copy._next_prefix_match.copy()
         self._backtrack_tables_built = copy._backtrack_tables_built
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self._token_to_id = take._token_to_id^
         self._id_to_token = take._id_to_token^
@@ -124,7 +124,7 @@ struct Vocabulary(Copyable, Movable):
         self._next_prefix_match = take._next_prefix_match^
         self._backtrack_tables_built = take._backtrack_tables_built
 
-    fn add_token(mut self, token: String, id: Int):
+    def add_token(mut self, token: String, id: Int):
         """
         Add a token to the vocabulary.
 
@@ -139,7 +139,7 @@ struct Vocabulary(Copyable, Movable):
         while len(self._id_to_bytes) <= id:
             self._id_to_bytes.append(List[UInt8]())
 
-    fn add_token_bytes(mut self, token: String, id: Int, raw_bytes: List[UInt8]):
+    def add_token_bytes(mut self, token: String, id: Int, raw_bytes: List[UInt8]):
         """
         Add a token to the vocabulary with raw bytes.
 
@@ -160,7 +160,7 @@ struct Vocabulary(Copyable, Movable):
             self._id_to_bytes.append(List[UInt8]())
         self._id_to_bytes[id] = raw_bytes.copy()
 
-    fn get_bytes(self, id: Int) -> List[UInt8]:
+    def get_bytes(self, id: Int) -> List[UInt8]:
         """
         Get the raw bytes for a token ID.
 
@@ -174,11 +174,11 @@ struct Vocabulary(Copyable, Movable):
             return self._id_to_bytes[id].copy()
         return List[UInt8]()
 
-    fn has_bytes(self, id: Int) -> Bool:
+    def has_bytes(self, id: Int) -> Bool:
         """Check if a token ID has raw bytes stored."""
         return id >= 0 and id < len(self._id_to_bytes) and len(self._id_to_bytes[id]) > 0
 
-    fn add_merge(mut self, pair: String, rank: Int):
+    def add_merge(mut self, pair: String, rank: Int):
         """
         Add a BPE merge rule.
 
@@ -188,7 +188,7 @@ struct Vocabulary(Copyable, Movable):
         """
         self._merges[pair] = rank
 
-    fn get_id(self, token: String) -> Int:
+    def get_id(self, token: String) -> Int:
         """
         Get the ID for a token.
 
@@ -205,7 +205,7 @@ struct Vocabulary(Copyable, Movable):
                 return -1
         return -1
 
-    fn get_text(self, id: Int) -> String:
+    def get_text(self, id: Int) -> String:
         """
         Get the text for a token ID.
 
@@ -222,7 +222,7 @@ struct Vocabulary(Copyable, Movable):
                 return ""
         return ""
 
-    fn get_merge_rank(self, pair: String) -> Int:
+    def get_merge_rank(self, pair: String) -> Int:
         """
         Get the merge rank for a token pair.
 
@@ -239,19 +239,19 @@ struct Vocabulary(Copyable, Movable):
                 return -1
         return -1
 
-    fn has_token(self, token: String) -> Bool:
+    def has_token(self, token: String) -> Bool:
         """Check if a token exists in the vocabulary."""
         return token in self._token_to_id
 
-    fn has_id(self, id: Int) -> Bool:
+    def has_id(self, id: Int) -> Bool:
         """Check if an ID exists in the vocabulary."""
         return id in self._id_to_token
 
-    fn size(self) -> Int:
+    def size(self) -> Int:
         """Return the number of tokens in the vocabulary."""
         return self._size
 
-    fn clear(mut self):
+    def clear(mut self):
         """Clear all tokens and merges from the vocabulary."""
         self._token_to_id = Dict[String, Int]()
         self._id_to_token = Dict[Int, String]()
@@ -267,7 +267,7 @@ struct Vocabulary(Copyable, Movable):
     # Backtracking support methods (Phase B optimization)
     # =========================================================================
 
-    fn get_token_len(self, token_id: Int) -> Int:
+    def get_token_len(self, token_id: Int) -> Int:
         """Get the byte length of a token by its ID.
 
         Uses pre-stored raw bytes if available (tiktoken format),
@@ -286,11 +286,11 @@ struct Vocabulary(Copyable, Movable):
             return len(text.as_bytes())
         return 0
 
-    fn has_backtrack_tables(self) -> Bool:
+    def has_backtrack_tables(self) -> Bool:
         """Check if backtracking tables have been built."""
         return self._backtrack_tables_built
 
-    fn set_split(mut self, token_id: Int, left: Int, right: Int):
+    def set_split(mut self, token_id: Int, left: Int, right: Int):
         """
         Set the split decomposition for a token.
 
@@ -308,7 +308,7 @@ struct Vocabulary(Copyable, Movable):
             self._split_table.append((len(self._split_table), len(self._split_table)))
         self._split_table[token_id] = (left, right)
 
-    fn get_split(self, token_id: Int) -> Tuple[Int, Int]:
+    def get_split(self, token_id: Int) -> Tuple[Int, Int]:
         """
         Get the split decomposition for a token.
 
@@ -324,11 +324,11 @@ struct Vocabulary(Copyable, Movable):
         return (token_id, token_id)
 
     @staticmethod
-    fn _encode_pair(token1: Int, token2: Int) -> Int:
+    def _encode_pair(token1: Int, token2: Int) -> Int:
         """Encode a pair of tokens as a single Int for Dict lookup."""
         return token1 * 1000000 + token2
 
-    fn add_pair_lookup(mut self, token1: Int, token2: Int, merged: Int):
+    def add_pair_lookup(mut self, token1: Int, token2: Int, merged: Int):
         """
         Add a pair lookup entry.
 
@@ -340,7 +340,7 @@ struct Vocabulary(Copyable, Movable):
         var key = Self._encode_pair(token1, token2)
         self._pair_lookup[key] = merged
 
-    fn get_merged_token(self, token1: Int, token2: Int) -> Int:
+    def get_merged_token(self, token1: Int, token2: Int) -> Int:
         """
         Get the merged token for a pair, if it exists.
 
@@ -359,7 +359,7 @@ struct Vocabulary(Copyable, Movable):
                 return -1
         return -1
 
-    fn set_next_prefix(mut self, token_id: Int, prefix_id: Int):
+    def set_next_prefix(mut self, token_id: Int, prefix_id: Int):
         """
         Set the next shorter prefix token for a token.
 
@@ -372,7 +372,7 @@ struct Vocabulary(Copyable, Movable):
             self._next_prefix_match.append(-1)
         self._next_prefix_match[token_id] = prefix_id
 
-    fn get_next_prefix(self, token_id: Int) -> Int:
+    def get_next_prefix(self, token_id: Int) -> Int:
         """
         Get the next shorter prefix token for a token.
 
@@ -388,7 +388,7 @@ struct Vocabulary(Copyable, Movable):
             return self._next_prefix_match[token_id]
         return -1
 
-    fn is_valid_token_pair(self, token1: Int, token2: Int) -> Bool:
+    def is_valid_token_pair(self, token1: Int, token2: Int) -> Bool:
         """
         Check if two adjacent tokens form a valid BPE pair.
 
@@ -443,15 +443,15 @@ struct Vocabulary(Copyable, Movable):
                         # Both original - valid pair
                         return True
 
-    fn mark_backtrack_tables_built(mut self):
+    def mark_backtrack_tables_built(mut self):
         """Mark that backtracking tables have been built."""
         self._backtrack_tables_built = True
 
-    fn num_pairs(self) -> Int:
+    def num_pairs(self) -> Int:
         """Return the number of pair lookups."""
         return len(self._pair_lookup)
 
-    fn build_backtrack_tables(mut self):
+    def build_backtrack_tables(mut self):
         """
         Build the backtracking tables from the vocabulary.
 
@@ -528,7 +528,7 @@ struct Vocabulary(Copyable, Movable):
 
         self._backtrack_tables_built = True
 
-    fn _is_valid_pair_for_building(self, token1: Int, token2: Int) -> Bool:
+    def _is_valid_pair_for_building(self, token1: Int, token2: Int) -> Bool:
         """
         Check if a token pair is valid during table building.
 

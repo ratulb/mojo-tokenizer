@@ -26,7 +26,7 @@ from ..io.file import read_lines
 from ..encoding.base64 import base64_decode, bytes_to_string
 
 
-fn _split_line(line: String) -> Tuple[String, String]:
+def _split_line(line: String) -> Tuple[String, String]:
     """Split a line on the last space (token may contain spaces)."""
     # Find last space (rank is always at end)
     var last_space = -1
@@ -47,7 +47,7 @@ fn _split_line(line: String) -> Tuple[String, String]:
     return Tuple(first_part, second_part)
 
 
-fn _parse_int(s: String) raises -> Int:
+def _parse_int(s: String) raises -> Int:
     """Parse an integer from string."""
     if len(s) == 0:
         raise Error("Cannot parse empty string as int")
@@ -74,7 +74,7 @@ fn _parse_int(s: String) raises -> Int:
     return result
 
 
-fn load_tiktoken(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
+def load_tiktoken(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
     """
     Load a tiktoken vocabulary file.
 
@@ -142,7 +142,7 @@ fn load_tiktoken(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
     return Tuple(vocab^, special^)
 
 
-fn load_tiktoken_with_special(
+def load_tiktoken_with_special(
     path: String,
     special_tokens: Dict[String, Int]
 ) raises -> Tuple[Vocabulary, SpecialTokens]:

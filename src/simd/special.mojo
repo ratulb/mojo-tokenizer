@@ -9,7 +9,7 @@ comptime SIMD_WIDTH: Int = 16
 
 
 @always_inline
-fn char_matches_any(c: UInt8, targets: List[UInt8]) -> Bool:
+def char_matches_any(c: UInt8, targets: List[UInt8]) -> Bool:
     """Check if character matches any target."""
     for i in range(len(targets)):
         if c == targets[i]:
@@ -17,7 +17,7 @@ fn char_matches_any(c: UInt8, targets: List[UInt8]) -> Bool:
     return False
 
 
-fn find_char_simd(data: String, start: Int, target: UInt8) -> Int:
+def find_char_simd(data: String, start: Int, target: UInt8) -> Int:
     """
     Find first occurrence of target character using SIMD.
 
@@ -55,7 +55,7 @@ fn find_char_simd(data: String, start: Int, target: UInt8) -> Int:
     return -1
 
 
-fn find_any_char_simd(data: String, start: Int, targets: String) -> Int:
+def find_any_char_simd(data: String, start: Int, targets: String) -> Int:
     """
     Find first occurrence of any character in targets using SIMD.
 
@@ -106,7 +106,7 @@ fn find_any_char_simd(data: String, start: Int, targets: String) -> Int:
     return -1
 
 
-fn find_special_token_boundary(data: String, start: Int, special_start: String) -> Int:
+def find_special_token_boundary(data: String, start: Int, special_start: String) -> Int:
     """
     Find start of a special token marker (e.g., "<|" or "[").
 
@@ -140,7 +140,7 @@ fn find_special_token_boundary(data: String, start: Int, special_start: String) 
     return -1
 
 
-fn count_char_simd(data: String, target: UInt8) -> Int:
+def count_char_simd(data: String, target: UInt8) -> Int:
     """
     Count occurrences of target character using SIMD.
 

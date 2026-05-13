@@ -31,7 +31,7 @@ struct BitField(Movable, Copyable):
     var _num_bits: Int
     """Total number of bits."""
 
-    fn __init__(out self, bits: Int):
+    def __init__(out self, bits: Int):
         """
         Create a bitfield with all bits set to 1.
 
@@ -45,17 +45,17 @@ struct BitField(Movable, Copyable):
         for _ in range(num_words):
             self.words.append(~UInt64(0))  # All 1s
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         """Copy constructor."""
         self.words = copy.words.copy()
         self._num_bits = copy._num_bits
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self.words = take.words^
         self._num_bits = take._num_bits
 
-    fn is_set(self, bit: Int) -> Bool:
+    def is_set(self, bit: Int) -> Bool:
         """
         Check if a bit is set.
 
@@ -69,7 +69,7 @@ struct BitField(Movable, Copyable):
         var bit_idx = bit % 64
         return (self.words[word_idx] & (UInt64(1) << UInt64(bit_idx))) != 0
 
-    fn clear(mut self, bit: Int):
+    def clear(mut self, bit: Int):
         """
         Clear a bit (set to 0).
 
@@ -80,7 +80,7 @@ struct BitField(Movable, Copyable):
         var bit_idx = bit % 64
         self.words[word_idx] &= ~(UInt64(1) << UInt64(bit_idx))
 
-    fn set(mut self, bit: Int):
+    def set(mut self, bit: Int):
         """
         Set a bit (set to 1).
 
@@ -91,7 +91,7 @@ struct BitField(Movable, Copyable):
         var bit_idx = bit % 64
         self.words[word_idx] |= UInt64(1) << UInt64(bit_idx)
 
-    fn successor(self, bit: Int) -> Int:
+    def successor(self, bit: Int) -> Int:
         """
         Find the next set bit >= given position.
 
@@ -123,7 +123,7 @@ struct BitField(Movable, Copyable):
         # Should not reach here if caller ensures successor exists
         return self._num_bits
 
-    fn predecessor(self, bit: Int) -> Int:
+    def predecessor(self, bit: Int) -> Int:
         """
         Find the previous set bit <= given position.
 
@@ -155,13 +155,13 @@ struct BitField(Movable, Copyable):
         # Should not reach here if caller ensures predecessor exists
         return 0
 
-    fn num_bits(self) -> Int:
+    def num_bits(self) -> Int:
         """Get total number of bits."""
         return self._num_bits
 
 
 @always_inline
-fn _trailing_zeros(x: UInt64) -> Int:
+def _trailing_zeros(x: UInt64) -> Int:
     """Count trailing zeros (position of lowest set bit)."""
     if x == 0:
         return 64
@@ -189,7 +189,7 @@ fn _trailing_zeros(x: UInt64) -> Int:
 
 
 @always_inline
-fn _leading_zeros(x: UInt64) -> Int:
+def _leading_zeros(x: UInt64) -> Int:
     """Count leading zeros (64 - 1 - position of highest set bit)."""
     if x == 0:
         return 64

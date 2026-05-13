@@ -15,13 +15,13 @@ comptime CR: UInt8 = 13       # '\r'
 
 
 @always_inline
-fn is_whitespace(c: UInt8) -> Bool:
+def is_whitespace(c: UInt8) -> Bool:
     """Check if byte is ASCII whitespace."""
     return c == SPACE or c == TAB or c == NEWLINE or c == CR
 
 
 @always_inline
-fn create_whitespace_mask(chunk: SIMD[DType.uint8, SIMD_WIDTH]) -> SIMD[DType.uint8, SIMD_WIDTH]:
+def create_whitespace_mask(chunk: SIMD[DType.uint8, SIMD_WIDTH]) -> SIMD[DType.uint8, SIMD_WIDTH]:
     """
     Create a mask where 1 = whitespace, 0 = non-whitespace.
 
@@ -36,7 +36,7 @@ fn create_whitespace_mask(chunk: SIMD[DType.uint8, SIMD_WIDTH]) -> SIMD[DType.ui
     return mask
 
 
-fn skip_whitespace_simd(data: String, start: Int) -> Int:
+def skip_whitespace_simd(data: String, start: Int) -> Int:
     """
     Skip whitespace using SIMD. Returns position of first non-whitespace.
 
@@ -77,7 +77,7 @@ fn skip_whitespace_simd(data: String, start: Int) -> Int:
     return pos
 
 
-fn count_whitespace_simd(data: String) -> Int:
+def count_whitespace_simd(data: String) -> Int:
     """
     Count whitespace characters using SIMD.
 
@@ -108,7 +108,7 @@ fn count_whitespace_simd(data: String) -> Int:
     return count
 
 
-fn find_non_whitespace(data: String) -> Int:
+def find_non_whitespace(data: String) -> Int:
     """Find first non-whitespace character, or -1 if all whitespace."""
     var pos = skip_whitespace_simd(data, 0)
     if pos >= len(data):
@@ -116,7 +116,7 @@ fn find_non_whitespace(data: String) -> Int:
     return pos
 
 
-fn trim_whitespace(data: String) -> String:
+def trim_whitespace(data: String) -> String:
     """Trim leading and trailing whitespace."""
     var start = skip_whitespace_simd(data, 0)
     if start >= len(data):
@@ -142,7 +142,7 @@ fn trim_whitespace(data: String) -> String:
 
 
 @always_inline
-fn is_boundary_byte(code: UInt8) -> Bool:
+def is_boundary_byte(code: UInt8) -> Bool:
     """Check if byte is a word boundary (space or punctuation)."""
     return (code == 32 or  # space
             (code >= 33 and code <= 47) or  # !"#$%&'()*+,-./
@@ -152,7 +152,7 @@ fn is_boundary_byte(code: UInt8) -> Bool:
 
 
 @always_inline
-fn create_boundary_mask(chunk: SIMD[DType.uint8, SIMD_WIDTH]) -> SIMD[DType.uint8, SIMD_WIDTH]:
+def create_boundary_mask(chunk: SIMD[DType.uint8, SIMD_WIDTH]) -> SIMD[DType.uint8, SIMD_WIDTH]:
     """
     Create a mask where 1 = boundary, 0 = non-boundary.
 
@@ -174,7 +174,7 @@ fn create_boundary_mask(chunk: SIMD[DType.uint8, SIMD_WIDTH]) -> SIMD[DType.uint
     return mask
 
 
-fn find_boundaries_simd(data: String, start: Int = 0) -> List[Int]:
+def find_boundaries_simd(data: String, start: Int = 0) -> List[Int]:
     """
     Find all word boundary positions using SIMD.
 
@@ -221,7 +221,7 @@ fn find_boundaries_simd(data: String, start: Int = 0) -> List[Int]:
     return boundaries^
 
 
-fn find_first_boundary_simd(data: String, start: Int = 0) -> Int:
+def find_first_boundary_simd(data: String, start: Int = 0) -> Int:
     """
     Find first word boundary position using SIMD.
 

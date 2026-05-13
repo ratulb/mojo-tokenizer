@@ -25,7 +25,7 @@ struct TrieNode(Movable, Copyable):
     var is_terminal: Bool
     """Whether this node represents a complete token."""
 
-    fn __init__(out self):
+    def __init__(out self):
         """Create an empty trie node."""
         self.children = List[Int](capacity=256)
         for _ in range(256):
@@ -33,13 +33,13 @@ struct TrieNode(Movable, Copyable):
         self.token_id = -1
         self.is_terminal = False
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         """Copy constructor."""
         self.children = copy.children.copy()
         self.token_id = copy.token_id
         self.is_terminal = copy.is_terminal
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self.children = take.children^
         self.token_id = take.token_id
@@ -67,24 +67,24 @@ struct ByteTrie(Movable, Copyable):
     var _size: Int
     """Number of tokens in the trie."""
 
-    fn __init__(out self):
+    def __init__(out self):
         """Create an empty byte trie."""
         self.nodes = List[TrieNode]()
         # Create root node
         self.nodes.append(TrieNode())
         self._size = 0
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         """Copy constructor."""
         self.nodes = copy.nodes.copy()
         self._size = copy._size
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self.nodes = take.nodes^
         self._size = take._size
 
-    fn insert(mut self, token_bytes: List[UInt8], token_id: Int):
+    def insert(mut self, token_bytes: List[UInt8], token_id: Int):
         """
         Insert a token into the trie.
 
@@ -112,7 +112,7 @@ struct ByteTrie(Movable, Copyable):
         self.nodes[node_idx].is_terminal = True
         self._size += 1
 
-    fn insert_string(mut self, token: String, token_id: Int):
+    def insert_string(mut self, token: String, token_id: Int):
         """
         Insert a token string into the trie.
 
@@ -126,7 +126,7 @@ struct ByteTrie(Movable, Copyable):
             byte_list.append(bytes[i])
         self.insert(byte_list, token_id)
 
-    fn lookup(self, input_bytes: List[UInt8]) -> TrieLookupResult:
+    def lookup(self, input_bytes: List[UInt8]) -> TrieLookupResult:
         """
         Look up a byte sequence in the trie.
 
@@ -163,7 +163,7 @@ struct ByteTrie(Movable, Copyable):
             last_match_len
         )
 
-    fn lookup_at_offset(self, input_bytes: List[UInt8], offset: Int) -> TrieLookupResult:
+    def lookup_at_offset(self, input_bytes: List[UInt8], offset: Int) -> TrieLookupResult:
         """
         Look up a byte sequence starting at offset (zero-copy).
 
@@ -202,7 +202,7 @@ struct ByteTrie(Movable, Copyable):
             last_match_len
         )
 
-    fn lookup_exact(self, input_bytes: List[UInt8]) -> Int:
+    def lookup_exact(self, input_bytes: List[UInt8]) -> Int:
         """
         Look up an exact byte sequence match.
 
@@ -228,7 +228,7 @@ struct ByteTrie(Movable, Copyable):
             return self.nodes[node_idx].token_id
         return -1
 
-    fn greedy_tokenize(self, input_bytes: List[UInt8]) -> List[Int]:
+    def greedy_tokenize(self, input_bytes: List[UInt8]) -> List[Int]:
         """
         Greedily tokenize a byte sequence using the trie.
 
@@ -278,11 +278,11 @@ struct ByteTrie(Movable, Copyable):
 
         return result^
 
-    fn size(self) -> Int:
+    def size(self) -> Int:
         """Get number of tokens in the trie."""
         return self._size
 
-    fn node_count(self) -> Int:
+    def node_count(self) -> Int:
         """Get total number of nodes in the trie."""
         return len(self.nodes)
 
@@ -299,19 +299,19 @@ struct TrieLookupResult(Movable, Copyable):
     var match_length: Int
     """Number of bytes matched."""
 
-    fn __init__(out self, found: Bool, token_id: Int, match_length: Int):
+    def __init__(out self, found: Bool, token_id: Int, match_length: Int):
         """Create a lookup result."""
         self.found = found
         self.token_id = token_id
         self.match_length = match_length
 
-    fn __copyinit__(out self, copy: Self):
+    def __copyinit__(out self, copy: Self):
         """Copy constructor."""
         self.found = copy.found
         self.token_id = copy.token_id
         self.match_length = copy.match_length
 
-    fn __moveinit__(out self, deinit take: Self):
+    def __moveinit__(out self, deinit take: Self):
         """Move constructor."""
         self.found = take.found
         self.token_id = take.token_id

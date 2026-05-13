@@ -25,7 +25,7 @@ from ..io.file import read_file
 from ..json.parser import JsonParser, parse_added_tokens
 
 
-fn load_huggingface(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
+def load_huggingface(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
     """
     Load a HuggingFace tokenizer.json file.
 
@@ -66,7 +66,7 @@ fn load_huggingface(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
     return _parse_tokenizer_json(content)
 
 
-fn _parse_tokenizer_json(content: String) raises -> Tuple[Vocabulary, SpecialTokens]:
+def _parse_tokenizer_json(content: String) raises -> Tuple[Vocabulary, SpecialTokens]:
     """Parse the tokenizer.json content."""
     var vocab = Vocabulary()
     var special = SpecialTokens()
@@ -90,7 +90,7 @@ fn _parse_tokenizer_json(content: String) raises -> Tuple[Vocabulary, SpecialTok
     return Tuple(vocab^, special^)
 
 
-fn _find_section(content: String, key: String) -> Int:
+def _find_section(content: String, key: String) -> Int:
     """Find the position of a key in JSON."""
     var pos = 0
     while pos < len(content) - len(key):
@@ -105,7 +105,7 @@ fn _find_section(content: String, key: String) -> Int:
     return -1
 
 
-fn _extract_object(content: String, start: Int) raises -> String:
+def _extract_object(content: String, start: Int) raises -> String:
     """Extract a JSON object starting after the key."""
     # Find the opening brace
     var pos = start
@@ -143,7 +143,7 @@ fn _extract_object(content: String, start: Int) raises -> String:
     return result
 
 
-fn _extract_array(content: String, start: Int) raises -> String:
+def _extract_array(content: String, start: Int) raises -> String:
     """Extract a JSON array starting after the key."""
     # Find the opening bracket
     var pos = start
@@ -181,7 +181,7 @@ fn _extract_array(content: String, start: Int) raises -> String:
     return result
 
 
-fn _parse_model_section(model_json: String, mut vocab: Vocabulary) raises:
+def _parse_model_section(model_json: String, mut vocab: Vocabulary) raises:
     """Parse the model section to extract vocab and merges."""
     # Find vocab
     var vocab_start = _find_section(model_json, "\"vocab\"")
@@ -205,7 +205,7 @@ fn _parse_model_section(model_json: String, mut vocab: Vocabulary) raises:
             vocab.add_merge(merge, i)
 
 
-fn _parse_added_tokens_section(
+def _parse_added_tokens_section(
     added_json: String,
     mut vocab: Vocabulary,
     mut special: SpecialTokens
@@ -223,7 +223,7 @@ fn _parse_added_tokens_section(
             vocab.add_token(token.content, token.id)
 
 
-fn load_huggingface_fast(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
+def load_huggingface_fast(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
     """
     Load a HuggingFace tokenizer_config.json for fast tokenizers.
 
@@ -261,7 +261,7 @@ struct HuggingFaceConfig:
     var unk_token: String
     """Unknown token."""
 
-    fn __init__(out self):
+    def __init__(out self):
         """Create default configuration."""
         self.model_type = "BPE"
         self.vocab_size = 0

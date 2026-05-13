@@ -3,7 +3,7 @@
 from mojo_tokenizer import BPETokenizer, Token, Vocabulary, SpecialTokens
 
 
-fn test_token_creation() raises:
+def test_token_creation() raises:
     """Test Token struct creation and properties."""
     var token = Token(id=42, text="hello")
 
@@ -25,7 +25,7 @@ fn test_token_creation() raises:
     print("test_token_creation PASSED")
 
 
-fn test_vocabulary_basic() raises:
+def test_vocabulary_basic() raises:
     """Test basic vocabulary operations."""
     var vocab = Vocabulary()
 
@@ -59,7 +59,7 @@ fn test_vocabulary_basic() raises:
     print("test_vocabulary_basic PASSED")
 
 
-fn test_vocabulary_merges() raises:
+def test_vocabulary_merges() raises:
     """Test BPE merge rule handling."""
     var vocab = Vocabulary()
 
@@ -81,7 +81,7 @@ fn test_vocabulary_merges() raises:
     print("test_vocabulary_merges PASSED")
 
 
-fn test_special_tokens() raises:
+def test_special_tokens() raises:
     """Test special token handling."""
     var special = SpecialTokens()
 
@@ -113,7 +113,7 @@ fn test_special_tokens() raises:
     print("test_special_tokens PASSED")
 
 
-fn test_special_token_splitting() raises:
+def test_special_token_splitting() raises:
     """Test splitting text on special tokens."""
     var special = SpecialTokens()
     special.add("<|endoftext|>", 50256)
@@ -136,7 +136,7 @@ fn test_special_token_splitting() raises:
     print("test_special_token_splitting PASSED")
 
 
-fn test_bpe_tokenizer_creation() raises:
+def test_bpe_tokenizer_creation() raises:
     """Test BPE tokenizer creation."""
     var tokenizer = BPETokenizer()
 
@@ -153,7 +153,7 @@ fn test_bpe_tokenizer_creation() raises:
     print("test_bpe_tokenizer_creation PASSED")
 
 
-fn test_empty_encoding() raises:
+def test_empty_encoding() raises:
     """Test encoding empty string."""
     var tokenizer = BPETokenizer()
     var tokens = tokenizer.encode("")
@@ -164,7 +164,7 @@ fn test_empty_encoding() raises:
     print("test_empty_encoding PASSED")
 
 
-fn main() raises:
+def main() raises:
     """Run all tests."""
     print("Running mojo-tokenizer tests...\n")
 

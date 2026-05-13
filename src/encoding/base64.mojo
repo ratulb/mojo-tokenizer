@@ -10,7 +10,7 @@ comptime BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012
 
 
 @always_inline
-fn _get_decode_value(c: Int) -> Int:
+def _get_decode_value(c: Int) -> Int:
     """Get decode value for a character."""
     # A-Z: 0-25
     if c >= 65 and c <= 90:
@@ -31,7 +31,7 @@ fn _get_decode_value(c: Int) -> Int:
     return -1
 
 
-fn base64_decode(encoded: String) raises -> List[UInt8]:
+def base64_decode(encoded: String) raises -> List[UInt8]:
     """
     Decode a base64-encoded string to bytes.
 
@@ -100,7 +100,7 @@ fn base64_decode(encoded: String) raises -> List[UInt8]:
     return result^
 
 
-fn base64_encode(data: List[UInt8]) -> String:
+def base64_encode(data: List[UInt8]) -> String:
     """
     Encode bytes to a base64 string.
 
@@ -138,7 +138,7 @@ fn base64_encode(data: List[UInt8]) -> String:
     return result
 
 
-fn bytes_to_string(data: List[UInt8]) -> String:
+def bytes_to_string(data: List[UInt8]) -> String:
     """
     Convert a list of bytes to a UTF-8 string.
 
@@ -154,7 +154,7 @@ fn bytes_to_string(data: List[UInt8]) -> String:
     return result
 
 
-fn string_to_bytes(s: String) -> List[UInt8]:
+def string_to_bytes(s: String) -> List[UInt8]:
     """
     Convert a string to a list of UTF-8 bytes.
 
