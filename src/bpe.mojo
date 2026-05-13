@@ -21,7 +21,7 @@ Performance optimizations (v0.3.0):
     - Pre-sized collections
 """
 
-from memory import memcpy, UnsafePointer
+from std.memory import memcpy, UnsafePointer
 from .tokenizer import Tokenizer, Token
 from .vocab import Vocabulary, MergeRule
 from .special_tokens import SpecialTokens
@@ -34,7 +34,7 @@ from .bitfield import BitField
 
 
 # SIMD width for parallel character classification
-alias SIMD_WIDTH: Int = 16
+comptime SIMD_WIDTH: Int = 16
 
 
 @always_inline
@@ -45,6 +45,34 @@ fn _is_boundary_byte(code: UInt8) -> Bool:
     (is_boundary_byte) is imported from .simd module.
     """
     return is_boundary_byte(code)
+
+
+fn _utf8_char_at(s: String, idx: Int) -> String:
+    """Get the idx-th Unicode character from a string."""
+    var ptr = s.as_bytes()
+    var byte_pos = 0
+    for _ in range(idx):
+        var b = ptr[byte_pos]
+        if b < 0x80:
+            byte_pos += 1
+        elif b < 0xE0:
+            byte_pos += 2
+        elif b < 0xF0:
+            byte_pos += 3
+        else:
+            byte_pos += 4
+    var b = ptr[byte_pos]
+    var char_len = 1
+    if b >= 0xF0:
+        char_len = 4
+    elif b >= 0xE0:
+        char_len = 3
+    elif b >= 0xC0:
+        char_len = 2
+    var result = String()
+    for k in range(char_len):
+        result += chr(Int(ptr[byte_pos + k]))
+    return result^
 
 
 struct BPETokenizer(Tokenizer, Copyable, Movable):
@@ -135,47 +163,47 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         self._use_backtrack = False  # Enable after tables are built
         self._init_byte_mappings()
 
-    fn __copyinit__(out self, existing: Self):
+    fn __copyinit__(out self, copy: Self):
         """Copy constructor."""
-        self.vocab = existing.vocab.copy()
-        self.special_tokens = existing.special_tokens.copy()
-        self._byte_encoder = existing._byte_encoder.copy()
-        self._byte_encoder_bytes = existing._byte_encoder_bytes.copy()
-        self._byte_decoder = existing._byte_decoder.copy()
+        self.vocab = copy.vocab.copy()
+        self.special_tokens = copy.special_tokens.copy()
+        self._byte_encoder = copy._byte_encoder.copy()
+        self._byte_encoder_bytes = copy._byte_encoder_bytes.copy()
+        self._byte_decoder = copy._byte_decoder.copy()
         self._cache = TokenCache(10000)  # Fresh cache for copy
         self._merge_cache = MergeCache()  # Fresh merge cache
-        self._use_cache = existing._use_cache
+        self._use_cache = copy._use_cache
         # Phase 2: Copy trie (shared data)
-        self._vocab_trie = existing._vocab_trie.copy()
-        self._use_trie = existing._use_trie
+        self._vocab_trie = copy._vocab_trie.copy()
+        self._use_trie = copy._use_trie
         # Fresh buffers for copy (not shared)
         self._encode_buffer = List[UInt8](capacity=128)
         self._tokens_buffer = List[String](capacity=128)
         self._merge_buffer = List[String](capacity=128)
         self._concat_buffer = List[UInt8](capacity=64)
         # Phase B: Copy backtrack flag
-        self._use_backtrack = existing._use_backtrack
+        self._use_backtrack = copy._use_backtrack
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self.vocab = existing.vocab^
-        self.special_tokens = existing.special_tokens^
-        self._byte_encoder = existing._byte_encoder^
-        self._byte_encoder_bytes = existing._byte_encoder_bytes^
-        self._byte_decoder = existing._byte_decoder^
-        self._cache = existing._cache^
-        self._merge_cache = existing._merge_cache^
-        self._use_cache = existing._use_cache
+        self.vocab = take.vocab^
+        self.special_tokens = take.special_tokens^
+        self._byte_encoder = take._byte_encoder^
+        self._byte_encoder_bytes = take._byte_encoder_bytes^
+        self._byte_decoder = take._byte_decoder^
+        self._cache = take._cache^
+        self._merge_cache = take._merge_cache^
+        self._use_cache = take._use_cache
         # Phase 2: Move trie
-        self._vocab_trie = existing._vocab_trie^
-        self._use_trie = existing._use_trie
+        self._vocab_trie = take._vocab_trie^
+        self._use_trie = take._use_trie
         # Move buffers
-        self._encode_buffer = existing._encode_buffer^
-        self._tokens_buffer = existing._tokens_buffer^
-        self._merge_buffer = existing._merge_buffer^
-        self._concat_buffer = existing._concat_buffer^
+        self._encode_buffer = take._encode_buffer^
+        self._tokens_buffer = take._tokens_buffer^
+        self._merge_buffer = take._merge_buffer^
+        self._concat_buffer = take._concat_buffer^
         # Phase B: Move backtrack flag
-        self._use_backtrack = existing._use_backtrack
+        self._use_backtrack = take._use_backtrack
 
     fn _init_byte_mappings(mut self):
         """Initialize byte-to-unicode mappings for BPE.
@@ -238,6 +266,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
         Example:
             var tokenizer = BPETokenizer.from_tiktoken("cl100k_base.tiktoken")
+        ```
         """
         var tokenizer = BPETokenizer()
         var vocab_special = load_tiktoken(path)
@@ -272,6 +301,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
                 "cl100k_base.tiktoken",
                 special
             )
+            .
         """
         var tokenizer = BPETokenizer()
         var vocab_special = load_tiktoken_with_special(path, special)
@@ -300,6 +330,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
         Example:
             var tokenizer = BPETokenizer.from_huggingface("tokenizer.json")
+            .
         """
         var tokenizer = BPETokenizer()
         var vocab_special = load_huggingface(path)
@@ -461,8 +492,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         while i + SIMD_WIDTH <= n:
             # Load 16 bytes
             var chunk = SIMD[DType.uint8, SIMD_WIDTH]()
-            @parameter
-            for j in range(SIMD_WIDTH):
+            comptime for j in range(SIMD_WIDTH):
                 chunk[j] = ptr[i + j]
 
             # Create boundary mask (1 = boundary, 0 = not)
@@ -472,15 +502,17 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
             var boundary_count = Int(mask.reduce_add())
             if boundary_count > 0:
                 # Process boundaries in this chunk
-                @parameter
-                for j in range(SIMD_WIDTH):
+                comptime for j in range(SIMD_WIDTH):
                     if mask[j] == 1:
                         var pos = i + j
                         # Add accumulated word if any
                         if pos > start:
-                            words.append(String(text[start:pos]))
+                            var slice = String()
+                            for k in range(start, pos):
+                                slice += chr(Int(text.as_bytes()[k]))
+                            words.append(slice)
                         # Add boundary character as its own word
-                        words.append(String(text[pos]))
+                        words.append(chr(Int(text.as_bytes()[pos])))
                         start = pos + 1
 
             i += SIMD_WIDTH
@@ -490,14 +522,20 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
             var code = ptr[i]
             if is_boundary_byte(code):
                 if i > start:
-                    words.append(String(text[start:i]))
-                words.append(String(text[i]))
+                    var slice = String()
+                    for k in range(start, i):
+                        slice += chr(Int(text.as_bytes()[k]))
+                    words.append(slice)
+                words.append(chr(Int(text.as_bytes()[i])))
                 start = i + 1
             i += 1
 
         # Add final word if any
         if start < n:
-            words.append(String(text[start:n]))
+            var slice = String()
+            for k in range(start, n):
+                slice += chr(Int(text.as_bytes()[k]))
+            words.append(slice)
 
         return words^
 
@@ -585,8 +623,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
                 # Get the BPE unicode representation
                 var bpe_str = self._byte_encoder[byte_val]
                 # Each char in the BPE string becomes a token
-                for j in range(len(bpe_str)):
-                    tokens.append(String(bpe_str[j]))
+                tokens.append(bpe_str)
 
         # Pre-allocate merge buffer with same capacity
         var buffer = List[String](capacity=word_len * 2)
@@ -619,7 +656,9 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
             var i = 0
             while i < len(tokens):
                 if i == best_idx:
-                    buffer.append(tokens[i] + tokens[i + 1])
+                    var left = tokens[i]
+                    var right = tokens[i + 1]
+                    buffer.append(left + right)
                     i += 2
                 else:
                     buffer.append(tokens[i])
@@ -639,7 +678,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
             else:
                 # Unknown token - encode as individual bytes
                 for j in range(len(token)):
-                    var byte_id = self.vocab.get_id(String(token[j]))
+                    var byte_id = self.vocab.get_id(_utf8_char_at(token, j))
                     if byte_id >= 0:
                         result.append(byte_id)
 
@@ -776,7 +815,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
 
         Returns:
             Hit rate as fraction (0.0 to 1.0).
-            Typical value for natural language: 80%+
+            Typical value for natural language: 80%+.
         """
         return self._cache.hit_rate()
 

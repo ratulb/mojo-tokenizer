@@ -20,13 +20,13 @@ struct SpecialToken(Copyable, Movable):
         self.text = text
         self.id = id
 
-    fn __copyinit__(out self, existing: Self):
-        self.text = existing.text
-        self.id = existing.id
+    fn __copyinit__(out self, copy: Self):
+        self.text = copy.text
+        self.id = copy.id
 
-    fn __moveinit__(out self, deinit existing: Self):
-        self.text = existing.text^
-        self.id = existing.id
+    fn __moveinit__(out self, deinit take: Self):
+        self.text = take.text^
+        self.id = take.id
 
 
 struct TextSegment(Copyable, Movable):
@@ -43,13 +43,13 @@ struct TextSegment(Copyable, Movable):
         self.text = text
         self.is_special = is_special
 
-    fn __copyinit__(out self, existing: Self):
-        self.text = existing.text
-        self.is_special = existing.is_special
+    fn __copyinit__(out self, copy: Self):
+        self.text = copy.text
+        self.is_special = copy.is_special
 
-    fn __moveinit__(out self, deinit existing: Self):
-        self.text = existing.text^
-        self.is_special = existing.is_special
+    fn __moveinit__(out self, deinit take: Self):
+        self.text = take.text^
+        self.is_special = take.is_special
 
 
 struct SpecialTokens(Copyable, Movable):
@@ -78,17 +78,17 @@ struct SpecialTokens(Copyable, Movable):
         self._id_to_text = Dict[Int, String]()
         self._tokens = List[SpecialToken]()
 
-    fn __copyinit__(out self, existing: Self):
+    fn __copyinit__(out self, copy: Self):
         """Copy constructor."""
-        self._text_to_id = existing._text_to_id.copy()
-        self._id_to_text = existing._id_to_text.copy()
-        self._tokens = existing._tokens.copy()
+        self._text_to_id = copy._text_to_id.copy()
+        self._id_to_text = copy._id_to_text.copy()
+        self._tokens = copy._tokens.copy()
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self._text_to_id = existing._text_to_id^
-        self._id_to_text = existing._id_to_text^
-        self._tokens = existing._tokens^
+        self._text_to_id = take._text_to_id^
+        self._id_to_text = take._id_to_text^
+        self._tokens = take._tokens^
 
     fn add(mut self, text: String, id: Int):
         """
@@ -169,6 +169,7 @@ struct SpecialTokens(Copyable, Movable):
                 TextSegment("<|endoftext|>", is_special=True),
                 TextSegment(" World", is_special=False)
             ]
+            .
         """
         var result = List[TextSegment]()
 
@@ -190,7 +191,9 @@ struct SpecialTokens(Copyable, Movable):
                 var token_len = len(token_text)
 
                 if current_pos + token_len <= len(text):
-                    var candidate = text[current_pos:current_pos + token_len]
+                    var candidate = String()
+                    for k in range(current_pos, current_pos + token_len):
+                        candidate += chr(Int(text.as_bytes()[k]))
                     if candidate == token_text:
                         # Found a special token
                         if len(current_segment) > 0:
@@ -202,7 +205,7 @@ struct SpecialTokens(Copyable, Movable):
                         break
 
             if not found_special:
-                current_segment += text[current_pos]
+                current_segment += chr(Int(text.as_bytes()[current_pos]))
                 current_pos += 1
 
         # Add any remaining ordinary text

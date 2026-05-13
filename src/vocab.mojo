@@ -28,17 +28,17 @@ struct MergeRule(Copyable, Movable):
         self.result = first + second
         self.rank = rank
 
-    fn __copyinit__(out self, existing: Self):
-        self.first = existing.first
-        self.second = existing.second
-        self.result = existing.result
-        self.rank = existing.rank
+    fn __copyinit__(out self, copy: Self):
+        self.first = copy.first
+        self.second = copy.second
+        self.result = copy.result
+        self.rank = copy.rank
 
-    fn __moveinit__(out self, deinit existing: Self):
-        self.first = existing.first^
-        self.second = existing.second^
-        self.result = existing.result^
-        self.rank = existing.rank
+    fn __moveinit__(out self, deinit take: Self):
+        self.first = take.first^
+        self.second = take.second^
+        self.result = take.result^
+        self.rank = take.rank
 
 
 struct Vocabulary(Copyable, Movable):
@@ -98,31 +98,31 @@ struct Vocabulary(Copyable, Movable):
         self._next_prefix_match = List[Int]()
         self._backtrack_tables_built = False
 
-    fn __copyinit__(out self, existing: Self):
+    fn __copyinit__(out self, copy: Self):
         """Copy constructor."""
-        self._token_to_id = existing._token_to_id.copy()
-        self._id_to_token = existing._id_to_token.copy()
-        self._id_to_bytes = existing._id_to_bytes.copy()
-        self._merges = existing._merges.copy()
-        self._size = existing._size
+        self._token_to_id = copy._token_to_id.copy()
+        self._id_to_token = copy._id_to_token.copy()
+        self._id_to_bytes = copy._id_to_bytes.copy()
+        self._merges = copy._merges.copy()
+        self._size = copy._size
         # Copy backtracking tables
-        self._split_table = existing._split_table.copy()
-        self._pair_lookup = existing._pair_lookup.copy()
-        self._next_prefix_match = existing._next_prefix_match.copy()
-        self._backtrack_tables_built = existing._backtrack_tables_built
+        self._split_table = copy._split_table.copy()
+        self._pair_lookup = copy._pair_lookup.copy()
+        self._next_prefix_match = copy._next_prefix_match.copy()
+        self._backtrack_tables_built = copy._backtrack_tables_built
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self._token_to_id = existing._token_to_id^
-        self._id_to_token = existing._id_to_token^
-        self._id_to_bytes = existing._id_to_bytes^
-        self._merges = existing._merges^
-        self._size = existing._size
+        self._token_to_id = take._token_to_id^
+        self._id_to_token = take._id_to_token^
+        self._id_to_bytes = take._id_to_bytes^
+        self._merges = take._merges^
+        self._size = take._size
         # Move backtracking tables
-        self._split_table = existing._split_table^
-        self._pair_lookup = existing._pair_lookup^
-        self._next_prefix_match = existing._next_prefix_match^
-        self._backtrack_tables_built = existing._backtrack_tables_built
+        self._split_table = take._split_table^
+        self._pair_lookup = take._pair_lookup^
+        self._next_prefix_match = take._next_prefix_match^
+        self._backtrack_tables_built = take._backtrack_tables_built
 
     fn add_token(mut self, token: String, id: Int):
         """

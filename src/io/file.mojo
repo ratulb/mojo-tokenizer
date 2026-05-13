@@ -66,9 +66,10 @@ fn read_lines(path: String) raises -> List[String]:
     var content = read_file(path)
     var lines = List[String]()
     var current_line = String()
+    var content_bytes = content.as_bytes()
 
     for i in range(len(content)):
-        var c = String(content[i])
+        var c = chr(Int(content_bytes[i]))
         if c == "\n":
             lines.append(current_line^)
             current_line = String()

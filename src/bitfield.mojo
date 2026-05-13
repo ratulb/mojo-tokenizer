@@ -45,15 +45,15 @@ struct BitField(Movable, Copyable):
         for _ in range(num_words):
             self.words.append(~UInt64(0))  # All 1s
 
-    fn __copyinit__(out self, existing: Self):
+    fn __copyinit__(out self, copy: Self):
         """Copy constructor."""
-        self.words = existing.words.copy()
-        self._num_bits = existing._num_bits
+        self.words = copy.words.copy()
+        self._num_bits = copy._num_bits
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self.words = existing.words^
-        self._num_bits = existing._num_bits
+        self.words = take.words^
+        self._num_bits = take._num_bits
 
     fn is_set(self, bit: Int) -> Bool:
         """
@@ -67,7 +67,7 @@ struct BitField(Movable, Copyable):
         """
         var word_idx = bit // 64
         var bit_idx = bit % 64
-        return (self.words[word_idx] & (UInt64(1) << bit_idx)) != 0
+        return (self.words[word_idx] & (UInt64(1) << UInt64(bit_idx))) != 0
 
     fn clear(mut self, bit: Int):
         """
@@ -78,7 +78,7 @@ struct BitField(Movable, Copyable):
         """
         var word_idx = bit // 64
         var bit_idx = bit % 64
-        self.words[word_idx] &= ~(UInt64(1) << bit_idx)
+        self.words[word_idx] &= ~(UInt64(1) << UInt64(bit_idx))
 
     fn set(mut self, bit: Int):
         """
@@ -89,7 +89,7 @@ struct BitField(Movable, Copyable):
         """
         var word_idx = bit // 64
         var bit_idx = bit % 64
-        self.words[word_idx] |= UInt64(1) << bit_idx
+        self.words[word_idx] |= UInt64(1) << UInt64(bit_idx)
 
     fn successor(self, bit: Int) -> Int:
         """
@@ -108,7 +108,7 @@ struct BitField(Movable, Copyable):
         var bit_idx = bit % 64
 
         # Check current word from bit_idx onwards
-        var word = self.words[word_idx] >> bit_idx
+        var word = self.words[word_idx] >> UInt64(bit_idx)
         if word != 0:
             return _trailing_zeros(word) + bit
 
@@ -141,7 +141,7 @@ struct BitField(Movable, Copyable):
 
         # Check current word from bit_idx downwards
         # Shift left to put our bit at position 63
-        var word = self.words[word_idx] << (63 - bit_idx)
+        var word = self.words[word_idx] << UInt64(63 - bit_idx)
         if word != 0:
             return bit - _leading_zeros(word)
 

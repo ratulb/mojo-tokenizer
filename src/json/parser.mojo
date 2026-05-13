@@ -30,21 +30,21 @@ struct JsonValue(Copyable, Movable):
         self._float_val = 0.0
         self._string_val = ""
 
-    fn __copyinit__(out self, existing: Self):
+    fn __copyinit__(out self, copy: Self):
         """Copy constructor."""
-        self._type = existing._type
-        self._bool_val = existing._bool_val
-        self._int_val = existing._int_val
-        self._float_val = existing._float_val
-        self._string_val = existing._string_val
+        self._type = copy._type
+        self._bool_val = copy._bool_val
+        self._int_val = copy._int_val
+        self._float_val = copy._float_val
+        self._string_val = copy._string_val
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self._type = existing._type
-        self._bool_val = existing._bool_val
-        self._int_val = existing._int_val
-        self._float_val = existing._float_val
-        self._string_val = existing._string_val^
+        self._type = take._type
+        self._bool_val = take._bool_val
+        self._int_val = take._int_val
+        self._float_val = take._float_val
+        self._string_val = take._string_val^
 
     fn is_null(self) -> Bool:
         return self._type == 0
@@ -118,13 +118,13 @@ struct JsonParser:
         """Peek at current character without consuming."""
         if self._pos >= self._len:
             return ""
-        return String(self._data[self._pos])
+        return chr(Int(self._data.as_bytes()[self._pos]))
 
     fn consume(mut self) -> String:
         """Consume and return current character."""
         if self._pos >= self._len:
             return ""
-        var c = String(self._data[self._pos])
+        var c = chr(Int(self._data.as_bytes()[self._pos]))
         self._pos += 1
         return c
 
@@ -140,7 +140,7 @@ struct JsonParser:
         var result = String()
 
         while self._pos < self._len:
-            var c = String(self._data[self._pos])
+            var c = chr(Int(self._data.as_bytes()[self._pos]))
             self._pos += 1
 
             if c == "\"":
@@ -150,7 +150,7 @@ struct JsonParser:
                 # Handle escape sequences
                 if self._pos >= self._len:
                     raise Error("Unexpected end of string")
-                var next = String(self._data[self._pos])
+                var next = chr(Int(self._data.as_bytes()[self._pos]))
                 self._pos += 1
 
                 if next == "\"":
@@ -167,7 +167,9 @@ struct JsonParser:
                     # Unicode escape - parse 4 hex digits
                     if self._pos + 4 > self._len:
                         raise Error("Invalid unicode escape")
-                    var hex_str = String(self._data[self._pos : self._pos + 4])
+                    var hex_str = String()
+                    for k in range(self._pos, self._pos + 4):
+                        hex_str += chr(Int(self._data.as_bytes()[k]))
                     self._pos += 4
                     var code = self._parse_hex(hex_str)
                     result += chr(code)
@@ -182,17 +184,15 @@ struct JsonParser:
         """Parse a 4-digit hex string."""
         var result = 0
         for i in range(len(s)):
-            var c = s[i]
-            var digit = 0
-            if c >= "0" and c <= "9":
-                digit = ord(c) - ord("0")
-            elif c >= "a" and c <= "f":
-                digit = ord(c) - ord("a") + 10
-            elif c >= "A" and c <= "F":
-                digit = ord(c) - ord("A") + 10
+            var c = s.as_bytes()[i]
+            if c >= UInt8(ord("0")) and c <= UInt8(ord("9")):
+                result = result * 16 + (Int(c) - ord("0"))
+            elif c >= UInt8(ord("a")) and c <= UInt8(ord("f")):
+                result = result * 16 + (Int(c) - ord("a") + 10)
+            elif c >= UInt8(ord("A")) and c <= UInt8(ord("F")):
+                result = result * 16 + (Int(c) - ord("A") + 10)
             else:
-                raise Error("Invalid hex character: " + c)
-            result = result * 16 + digit
+                raise Error("Invalid hex character: " + chr(Int(c)))
         return result
 
     fn parse_number(mut self) raises -> Int:
@@ -205,9 +205,9 @@ struct JsonParser:
             self._pos += 1
 
         while self._pos < self._len:
-            var c = self._data[self._pos]
-            if c >= "0" and c <= "9":
-                result = result * 10 + (ord(c) - ord("0"))
+            var c = self._data.as_bytes()[self._pos]
+            if c >= UInt8(ord("0")) and c <= UInt8(ord("9")):
+                result = result * 10 + (Int(c) - ord("0"))
                 self._pos += 1
             else:
                 break
@@ -219,17 +219,26 @@ struct JsonParser:
 
     fn parse_bool(mut self) raises -> Bool:
         """Parse true or false."""
-        if self._data[self._pos : self._pos + 4] == "true":
+        if self._pos + 4 <= self._len and self._check_slice(self._pos, 4, "true"):
             self._pos += 4
             return True
-        elif self._data[self._pos : self._pos + 5] == "false":
+        elif self._pos + 5 <= self._len and self._check_slice(self._pos, 5, "false"):
             self._pos += 5
             return False
         raise Error("Expected 'true' or 'false'")
 
+    fn _check_slice(self, start: Int, length: Int, target: String) -> Bool:
+        """Check if a slice of _data matches target by comparing bytes."""
+        if start + length > self._len:
+            return False
+        for i in range(length):
+            if self._data.as_bytes()[start + i] != target.as_bytes()[i]:
+                return False
+        return True
+
     fn parse_null(mut self) raises:
         """Parse null value."""
-        if self._data[self._pos : self._pos + 4] == "null":
+        if self._pos + 4 <= self._len and self._check_slice(self._pos, 4, "null"):
             self._pos += 4
             return
         raise Error("Expected 'null'")
@@ -437,15 +446,15 @@ struct AddedToken(Copyable, Movable):
         self.id = 0
         self.special = False
 
-    fn __copyinit__(out self, existing: Self):
-        self.content = existing.content
-        self.id = existing.id
-        self.special = existing.special
+    fn __copyinit__(out self, copy: Self):
+        self.content = copy.content
+        self.id = copy.id
+        self.special = copy.special
 
-    fn __moveinit__(out self, deinit existing: Self):
-        self.content = existing.content^
-        self.id = existing.id
-        self.special = existing.special
+    fn __moveinit__(out self, deinit take: Self):
+        self.content = take.content^
+        self.id = take.id
+        self.special = take.special
 
 
 fn parse_added_tokens(mut parser: JsonParser) raises -> List[AddedToken]:

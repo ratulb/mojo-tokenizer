@@ -39,13 +39,13 @@ struct TokenCache(Movable):
         self._hits = 0
         self._misses = 0
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self._cache = existing._cache^
-        self._access_order = existing._access_order^
-        self._capacity = existing._capacity
-        self._hits = existing._hits
-        self._misses = existing._misses
+        self._cache = take._cache^
+        self._access_order = take._access_order^
+        self._capacity = take._capacity
+        self._hits = take._hits
+        self._misses = take._misses
 
     fn get(mut self, key: String) -> Optional[List[Int]]:
         """
@@ -213,10 +213,10 @@ struct MergeCache(Movable):
         self._ranks = Dict[UInt64, Int]()
         self._size = 0
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self._ranks = existing._ranks^
-        self._size = existing._size
+        self._ranks = take._ranks^
+        self._size = take._size
 
     fn add(mut self, first: String, second: String, rank: Int):
         """Add a merge rule."""
@@ -256,17 +256,17 @@ struct MergeCache(Movable):
         Uses separator byte to ensure hash("ab", "c") != hash("a", "bc").
         """
         var hash: UInt64 = 14695981039346656037  # FNV offset basis
-        alias FNV_PRIME: UInt64 = 1099511628211
+        comptime FNV_PRIME: UInt64 = 1099511628211
 
         for i in range(len(a)):
-            hash ^= UInt64(ord(a[i]))
+            hash ^= UInt64(a.as_bytes()[i])
             hash *= FNV_PRIME
 
         hash ^= UInt64(0xFF)  # Separator
         hash *= FNV_PRIME
 
         for i in range(len(b)):
-            hash ^= UInt64(ord(b[i]))
+            hash ^= UInt64(b.as_bytes()[i])
             hash *= FNV_PRIME
 
         return hash

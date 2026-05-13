@@ -59,6 +59,7 @@ fn load_huggingface(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
 
     Usage:
         var vocab, special = load_huggingface("tokenizer.json")
+        .
     """
     var content = read_file(path)
 
@@ -95,7 +96,7 @@ fn _find_section(content: String, key: String) -> Int:
     while pos < len(content) - len(key):
         var found = True
         for i in range(len(key)):
-            if String(content[pos + i]) != String(key[i]):
+            if content.as_bytes()[pos + i] != key.as_bytes()[i]:
                 found = False
                 break
         if found:
@@ -108,7 +109,7 @@ fn _extract_object(content: String, start: Int) raises -> String:
     """Extract a JSON object starting after the key."""
     # Find the opening brace
     var pos = start
-    while pos < len(content) and String(content[pos]) != "{":
+    while pos < len(content) and content.as_bytes()[pos] != UInt8(ord("{")):
         pos += 1
 
     if pos >= len(content):
@@ -119,16 +120,16 @@ fn _extract_object(content: String, start: Int) raises -> String:
     pos += 1
 
     while pos < len(content) and depth > 0:
-        var c = String(content[pos])
-        if c == "{":
+        var c = content.as_bytes()[pos]
+        if c == UInt8(ord("{")):
             depth += 1
-        elif c == "}":
+        elif c == UInt8(ord("}")):
             depth -= 1
-        elif c == "\"":
+        elif c == UInt8(ord("\"")):
             # Skip string
             pos += 1
-            while pos < len(content) and String(content[pos]) != "\"":
-                if String(content[pos]) == "\\":
+            while pos < len(content) and content.as_bytes()[pos] != UInt8(ord("\"")):
+                if content.as_bytes()[pos] == UInt8(ord("\\")):
                     pos += 1  # Skip escaped char
                 pos += 1
         pos += 1
@@ -136,14 +137,17 @@ fn _extract_object(content: String, start: Int) raises -> String:
     if depth != 0:
         raise Error("Unbalanced braces in JSON")
 
-    return content[brace_start:pos]
+    var result = String()
+    for k in range(brace_start, pos):
+        result += chr(Int(content.as_bytes()[k]))
+    return result
 
 
 fn _extract_array(content: String, start: Int) raises -> String:
     """Extract a JSON array starting after the key."""
     # Find the opening bracket
     var pos = start
-    while pos < len(content) and String(content[pos]) != "[":
+    while pos < len(content) and content.as_bytes()[pos] != UInt8(ord("[")):
         pos += 1
 
     if pos >= len(content):
@@ -154,16 +158,16 @@ fn _extract_array(content: String, start: Int) raises -> String:
     pos += 1
 
     while pos < len(content) and depth > 0:
-        var c = String(content[pos])
-        if c == "[":
+        var c = content.as_bytes()[pos]
+        if c == UInt8(ord("[")):
             depth += 1
-        elif c == "]":
+        elif c == UInt8(ord("]")):
             depth -= 1
-        elif c == "\"":
+        elif c == UInt8(ord("\"")):
             # Skip string
             pos += 1
-            while pos < len(content) and String(content[pos]) != "\"":
-                if String(content[pos]) == "\\":
+            while pos < len(content) and content.as_bytes()[pos] != UInt8(ord("\"")):
+                if content.as_bytes()[pos] == UInt8(ord("\\")):
                     pos += 1  # Skip escaped char
                 pos += 1
         pos += 1
@@ -171,7 +175,10 @@ fn _extract_array(content: String, start: Int) raises -> String:
     if depth != 0:
         raise Error("Unbalanced brackets in JSON")
 
-    return content[bracket_start:pos]
+    var result = String()
+    for k in range(bracket_start, pos):
+        result += chr(Int(content.as_bytes()[k]))
+    return result
 
 
 fn _parse_model_section(model_json: String, mut vocab: Vocabulary) raises:

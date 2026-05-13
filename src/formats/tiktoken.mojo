@@ -31,14 +31,20 @@ fn _split_line(line: String) -> Tuple[String, String]:
     # Find last space (rank is always at end)
     var last_space = -1
     for i in range(len(line) - 1, -1, -1):
-        if line[i] == " ":
+        if line.as_bytes()[i] == UInt8(ord(" ")):
             last_space = i
             break
 
     if last_space < 0:
         return Tuple(line, String(""))
 
-    return Tuple(String(line[:last_space]), String(line[last_space + 1:]))
+    var first_part = String()
+    for k in range(last_space):
+        first_part += chr(Int(line.as_bytes()[k]))
+    var second_part = String()
+    for k in range(last_space + 1, len(line)):
+        second_part += chr(Int(line.as_bytes()[k]))
+    return Tuple(first_part, second_part)
 
 
 fn _parse_int(s: String) raises -> Int:
@@ -50,17 +56,17 @@ fn _parse_int(s: String) raises -> Int:
     var negative = False
     var start = 0
 
-    if s[0] == "-":
+    if s.as_bytes()[0] == UInt8(ord("-")):
         negative = True
         start = 1
-    elif s[0] == "+":
+    elif s.as_bytes()[0] == UInt8(ord("+")):
         start = 1
 
     for i in range(start, len(s)):
-        var c = s[i]
-        if c < "0" or c > "9":
-            raise Error("Invalid character in number: " + c)
-        result = result * 10 + (ord(c) - ord("0"))
+        var c = s.as_bytes()[i]
+        if Int(c) < ord("0") or Int(c) > ord("9"):
+            raise Error("Invalid character in number: " + chr(Int(c)))
+        result = result * 10 + (Int(c) - ord("0"))
 
     if negative:
         result = -result
@@ -99,6 +105,7 @@ fn load_tiktoken(path: String) raises -> Tuple[Vocabulary, SpecialTokens]:
 
     Usage:
         var vocab, special = load_tiktoken("cl100k_base.tiktoken")
+        .
     """
     var vocab = Vocabulary()
     var special = SpecialTokens()
@@ -159,6 +166,7 @@ fn load_tiktoken_with_special(
             "cl100k_base.tiktoken",
             special
         )
+        .
     """
     var result = load_tiktoken(path)
     var vocab = result[0].copy()

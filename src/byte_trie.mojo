@@ -33,17 +33,17 @@ struct TrieNode(Movable, Copyable):
         self.token_id = -1
         self.is_terminal = False
 
-    fn __copyinit__(out self, existing: Self):
+    fn __copyinit__(out self, copy: Self):
         """Copy constructor."""
-        self.children = existing.children.copy()
-        self.token_id = existing.token_id
-        self.is_terminal = existing.is_terminal
+        self.children = copy.children.copy()
+        self.token_id = copy.token_id
+        self.is_terminal = copy.is_terminal
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self.children = existing.children^
-        self.token_id = existing.token_id
-        self.is_terminal = existing.is_terminal
+        self.children = take.children^
+        self.token_id = take.token_id
+        self.is_terminal = take.is_terminal
 
 
 struct ByteTrie(Movable, Copyable):
@@ -74,15 +74,15 @@ struct ByteTrie(Movable, Copyable):
         self.nodes.append(TrieNode())
         self._size = 0
 
-    fn __copyinit__(out self, existing: Self):
+    fn __copyinit__(out self, copy: Self):
         """Copy constructor."""
-        self.nodes = existing.nodes.copy()
-        self._size = existing._size
+        self.nodes = copy.nodes.copy()
+        self._size = copy._size
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self.nodes = existing.nodes^
-        self._size = existing._size
+        self.nodes = take.nodes^
+        self._size = take._size
 
     fn insert(mut self, token_bytes: List[UInt8], token_id: Int):
         """
@@ -305,14 +305,14 @@ struct TrieLookupResult(Movable, Copyable):
         self.token_id = token_id
         self.match_length = match_length
 
-    fn __copyinit__(out self, existing: Self):
+    fn __copyinit__(out self, copy: Self):
         """Copy constructor."""
-        self.found = existing.found
-        self.token_id = existing.token_id
-        self.match_length = existing.match_length
+        self.found = copy.found
+        self.token_id = copy.token_id
+        self.match_length = copy.match_length
 
-    fn __moveinit__(out self, deinit existing: Self):
+    fn __moveinit__(out self, deinit take: Self):
         """Move constructor."""
-        self.found = existing.found
-        self.token_id = existing.token_id
-        self.match_length = existing.match_length
+        self.found = take.found
+        self.token_id = take.token_id
+        self.match_length = take.match_length

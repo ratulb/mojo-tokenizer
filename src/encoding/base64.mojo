@@ -6,7 +6,7 @@ are stored as base64-encoded byte sequences.
 """
 
 # Standard base64 alphabet
-alias BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+comptime BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 
 @always_inline
@@ -45,7 +45,7 @@ fn base64_decode(encoded: String) raises -> List[UInt8]:
         Error if the input is not valid base64.
 
     Example:
-        var bytes = base64_decode("SGVsbG8=")  # "Hello"
+        var bytes = base64_decode("SGVsbG8=")  # "Hello".
     """
     var result = List[UInt8]()
 
@@ -55,7 +55,7 @@ fn base64_decode(encoded: String) raises -> List[UInt8]:
     # Remove whitespace and validate length
     var clean = String()
     for i in range(len(encoded)):
-        var c = String(encoded[i])
+        var c = chr(Int(encoded.as_bytes()[i]))
         if c != " " and c != "\n" and c != "\r" and c != "\t":
             clean += c
 
@@ -66,10 +66,10 @@ fn base64_decode(encoded: String) raises -> List[UInt8]:
     var i = 0
     while i < len(clean):
         # Get 4 characters
-        var c0 = ord(clean[i])
-        var c1 = ord(clean[i + 1])
-        var c2 = ord(clean[i + 2])
-        var c3 = ord(clean[i + 3])
+        var c0 = Int(clean.as_bytes()[i])
+        var c1 = Int(clean.as_bytes()[i + 1])
+        var c2 = Int(clean.as_bytes()[i + 2])
+        var c3 = Int(clean.as_bytes()[i + 3])
 
         # Decode to 6-bit values
         var v0 = _get_decode_value(c0)
@@ -84,13 +84,13 @@ fn base64_decode(encoded: String) raises -> List[UInt8]:
         result.append(UInt8((v0 << 2) | (v1 >> 4)))
 
         # Second byte (if not padding)
-        if String(clean[i + 2]) != "=":
+        if chr(Int(clean.as_bytes()[i + 2])) != "=":
             if v2 < 0:
                 raise Error("Invalid base64 character at position " + String(i + 2))
             result.append(UInt8(((v1 & 0x0F) << 4) | (v2 >> 2)))
 
             # Third byte (if not padding)
-            if String(clean[i + 3]) != "=":
+            if chr(Int(clean.as_bytes()[i + 3])) != "=":
                 if v3 < 0:
                     raise Error("Invalid base64 character at position " + String(i + 3))
                 result.append(UInt8(((v2 & 0x03) << 6) | v3))
@@ -166,5 +166,5 @@ fn string_to_bytes(s: String) -> List[UInt8]:
     """
     var result = List[UInt8]()
     for i in range(len(s)):
-        result.append(UInt8(ord(s[i])))
+        result.append(s.as_bytes()[i])
     return result^
