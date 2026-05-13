@@ -1,5 +1,6 @@
 """
 Basic usage example for mojo-tokenizer.
+
 This example demonstrates:
 1. Creating a BPE tokenizer
 2. Adding special tokens
