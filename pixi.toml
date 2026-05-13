@@ -7,8 +7,8 @@ channels = ["conda-forge", "https://conda.modular.com/max"]
 platforms = ["osx-arm64", "linux-64"]
 
 [tasks]
-build = "mojo build src -o lib/mojo_tokenizer.mojopkg"
-test = "mojo run tests/test_tokenizer.mojo"
+test = "mojo run -I lib tests/test_tokenizer.mojo"
+build = "mojo package src -o lib/mojo_tokenizer.mojopkg"
 format = "mojo format src/"
 example = "mojo run examples/basic_usage.mojo"
 

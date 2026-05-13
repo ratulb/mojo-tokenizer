@@ -29,13 +29,8 @@ from .formats.tiktoken import load_tiktoken, load_tiktoken_with_special
 from .formats.huggingface import load_huggingface
 from .cache.token_cache import TokenCache, MergeCache
 from .byte_trie import ByteTrie, TrieLookupResult
-from .double_array_trie import DoubleArrayTrie, DATrieLookupResult
 from .simd import is_boundary_byte, create_boundary_mask
-from .bitfield import BitField, InlineBitField
-from .backtrack_encoder import BacktrackEncoder, backtrack_encode_bytes
-from .heap_bpe import HeapBPEEncoder, heap_bpe_encode
-from .pretokenizer import Pretokenizer, pretokenize, pretokenize_offsets
-from algorithm import parallelize
+from .bitfield import BitField
 
 
 # SIMD width for parallel character classification
@@ -101,13 +96,6 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
     var _use_trie: Bool
     """Whether to use trie lookup (enabled by default)."""
 
-    # Phase 5: Double Array Trie for compact, cache-friendly lookup
-    var _vocab_dat: DoubleArrayTrie
-    """Double Array Trie for O(1) state transitions (~10x smaller than ByteTrie)."""
-
-    var _use_dat: Bool
-    """Whether to use DAT for lookups (overrides ByteTrie when True)."""
-
     # Phase 1: Pre-allocated buffers for zero-allocation encoding
     var _encode_buffer: List[UInt8]
     """Reusable buffer for byte encoding."""
@@ -125,10 +113,6 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
     var _use_backtrack: Bool
     """Whether to use O(n) backtracking BPE (Phase B optimization)."""
 
-    # Phase C: O(n log n) heap-based encoder
-    var _use_heap_bpe: Bool
-    """Whether to use heap-based BPE (Phase C optimization)."""
-
     fn __init__(out self):
         """Create an empty BPETokenizer."""
         self.vocab = Vocabulary()
@@ -142,9 +126,6 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Phase 2: Byte trie for direct lookup
         self._vocab_trie = ByteTrie()
         self._use_trie = False  # Disabled - greedy trie != BPE merge order
-        # Phase 5: Double Array Trie (compact, cache-friendly)
-        self._vocab_dat = DoubleArrayTrie()
-        self._use_dat = True  # Enable DAT by default for faster lookups
         # Phase 1: Pre-allocate buffers (typical word ~20 bytes, max ~100)
         self._encode_buffer = List[UInt8](capacity=128)
         self._tokens_buffer = List[String](capacity=128)
@@ -152,10 +133,6 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         self._concat_buffer = List[UInt8](capacity=64)
         # Phase B: O(n) backtracking encoder
         self._use_backtrack = False  # Enable after tables are built
-        # Phase C: O(n log n) heap-based encoder
-        # DISABLED: Heap overhead > O(n²) for typical short words (5-15 tokens)
-        # See learnings.md for details
-        self._use_heap_bpe = False
         self._init_byte_mappings()
 
     fn __copyinit__(out self, existing: Self):
@@ -171,9 +148,6 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Phase 2: Copy trie (shared data)
         self._vocab_trie = existing._vocab_trie.copy()
         self._use_trie = existing._use_trie
-        # Phase 5: Copy DAT
-        self._vocab_dat = existing._vocab_dat.copy()
-        self._use_dat = existing._use_dat
         # Fresh buffers for copy (not shared)
         self._encode_buffer = List[UInt8](capacity=128)
         self._tokens_buffer = List[String](capacity=128)
@@ -181,8 +155,6 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         self._concat_buffer = List[UInt8](capacity=64)
         # Phase B: Copy backtrack flag
         self._use_backtrack = existing._use_backtrack
-        # Phase C: Copy heap BPE flag
-        self._use_heap_bpe = existing._use_heap_bpe
 
     fn __moveinit__(out self, deinit existing: Self):
         """Move constructor."""
@@ -197,9 +169,6 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Phase 2: Move trie
         self._vocab_trie = existing._vocab_trie^
         self._use_trie = existing._use_trie
-        # Phase 5: Move DAT
-        self._vocab_dat = existing._vocab_dat^
-        self._use_dat = existing._use_dat
         # Move buffers
         self._encode_buffer = existing._encode_buffer^
         self._tokens_buffer = existing._tokens_buffer^
@@ -207,8 +176,6 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         self._concat_buffer = existing._concat_buffer^
         # Phase B: Move backtrack flag
         self._use_backtrack = existing._use_backtrack
-        # Phase C: Move heap BPE flag
-        self._use_heap_bpe = existing._use_heap_bpe
 
     fn _init_byte_mappings(mut self):
         """Initialize byte-to-unicode mappings for BPE.
@@ -341,6 +308,7 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         tokenizer.vocab = v^
         tokenizer.special_tokens = s^
         tokenizer._build_merge_cache()
+        tokenizer._use_backtrack = True
         return tokenizer^
 
     fn _build_merge_cache(mut self):
@@ -361,12 +329,9 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Future: pre-populate MergeCache from vocab._merges for speed
 
     fn _build_vocab_trie(mut self):
-        """Build byte trie and DAT from vocabulary for O(n) direct lookup.
+        """Build byte trie from vocabulary for O(n) direct lookup.
 
-        Adds all vocabulary tokens to both the standard ByteTrie and the
-        compact DoubleArrayTrie. The DAT uses ~10x less memory and has
-        better cache locality for faster lookups.
-
+        Adds all vocabulary tokens to the standard ByteTrie.
         For short tokens (1-8 bytes), trie lookup is 5-10x faster than BPE.
 
         IMPORTANT: Uses raw bytes when available (tiktoken format) to avoid
@@ -377,28 +342,18 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # Get vocabulary size
         var vocab_size = self.vocab.size()
 
-        # Add each token to both tries
+        # Add each token to the trie
         for token_id in range(vocab_size):
             # Prefer raw bytes (for tiktoken) to avoid UTF-8 encoding issues
             if self.vocab.has_bytes(token_id):
                 var raw_bytes = self.vocab.get_bytes(token_id)
                 if len(raw_bytes) > 0:
                     self._vocab_trie.insert(raw_bytes, token_id)
-                    # Also add to DAT
-                    if self._use_dat:
-                        self._vocab_dat.insert(raw_bytes, token_id)
             else:
                 # Fallback to string-based insertion
                 var token_text = self.vocab.get_text(token_id)
                 if len(token_text) > 0:
                     self._vocab_trie.insert_string(token_text, token_id)
-                    # Also add to DAT (convert string to bytes)
-                    if self._use_dat:
-                        var text_bytes = token_text.as_bytes()
-                        var byte_list = List[UInt8](capacity=len(text_bytes))
-                        for i in range(len(text_bytes)):
-                            byte_list.append(text_bytes[i])
-                        self._vocab_dat.insert(byte_list, token_id)
 
     fn encode(mut self, text: String) raises -> List[Int]:
         """
@@ -461,23 +416,19 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         if len(text) == 0:
             return result^
 
-        # For tiktoken: Pretokenize first, then encode each piece
-        # This matches tiktoken's behavior: split with regex, then BPE each piece
+        # For backtrack encoder: Split into words, encode each with backtracking
         if self._use_backtrack and self.vocab.has_backtrack_tables():
-            var text_bytes = text.as_bytes()
-            var text_ptr = text_bytes.unsafe_ptr()
-            var text_len = len(text_bytes)
-            var pieces = pretokenize(text_ptr, text_len)
-            for p in range(len(pieces)):
-                var piece = pieces[p].copy()
-                var piece_len = piece.length()
-                if piece_len > 0:
-                    var byte_list = List[UInt8](capacity=piece_len)
-                    for j in range(piece_len):
-                        byte_list.append(text_ptr[piece.start + j])
-                    var piece_tokens = self._backtrack_encode_direct(byte_list)
-                    for t in range(len(piece_tokens)):
-                        result.append(piece_tokens[t])
+            var words = self._split_into_words(text)
+            for i in range(len(words)):
+                var word = words[i]
+                if len(word) > 0:
+                    var word_bytes = word.as_bytes()
+                    var byte_list = List[UInt8](capacity=len(word_bytes))
+                    for j in range(len(word_bytes)):
+                        byte_list.append(word_bytes[j])
+                    var word_tokens = self._backtrack_encode_direct(byte_list)
+                    for t in range(len(word_tokens)):
+                        result.append(word_tokens[t])
             return result^
 
         # For standard BPE: Split into words and encode each
@@ -588,15 +539,11 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
                     self._cache.put(word, cache_value^)
                 return result^
 
-        # Encoding priority (correctness required, speed preferred):
-        # 1. Phase C: Heap-based BPE - O(n log n), correct, fast (default)
-        # 2. Phase B: Backtracking BPE - O(n), but incorrect for tiktoken
-        # 3. Fallback: Standard BPE - O(n²), correct, slow
+        # Encoding priority:
+        # 1. Phase B: Backtracking BPE - O(n), correct for tiktoken
+        # 2. Fallback: Standard BPE - O(n²), correct, slow
         var token_ids: List[Int]
-        if self._use_heap_bpe:
-            # Phase C: O(n log n) heap-based BPE (correct + fast)
-            token_ids = heap_bpe_encode(self.vocab, self._byte_encoder, word)
-        elif self._use_backtrack and self.vocab.has_backtrack_tables():
+        if self._use_backtrack and self.vocab.has_backtrack_tables():
             # Phase B: O(n) backtracking (only for custom vocabs, not tiktoken)
             token_ids = self._bpe_encode_backtrack(word)
         else:
@@ -715,18 +662,23 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         var result_bytes = List[UInt8]()
 
         for i in range(len(tokens)):
-            # Get raw bytes directly from vocab
             var token_bytes = self.vocab.get_bytes(tokens[i])
-            if len(token_bytes) > 0:
-                for j in range(len(token_bytes)):
-                    result_bytes.append(token_bytes[j])
-            else:
-                # Check special tokens
+            if len(token_bytes) == 0:
+                var token_text = self.vocab.get_text(tokens[i])
+                if len(token_text) > 0:
+                    var text_bytes = token_text.as_bytes()
+                    token_bytes = List[UInt8](capacity=len(text_bytes))
+                    for j in range(len(text_bytes)):
+                        token_bytes.append(text_bytes[j])
+            if len(token_bytes) == 0:
                 var special_text = self.special_tokens.get_text(tokens[i])
                 if len(special_text) > 0:
-                    var special_bytes = special_text.as_bytes()
-                    for j in range(len(special_bytes)):
-                        result_bytes.append(special_bytes[j])
+                    var text_bytes = special_text.as_bytes()
+                    token_bytes = List[UInt8](capacity=len(text_bytes))
+                    for j in range(len(text_bytes)):
+                        token_bytes.append(text_bytes[j])
+            for j in range(len(token_bytes)):
+                result_bytes.append(token_bytes[j])
 
         # Convert bytes to UTF-8 string by copying into a String buffer
         var result = String()
@@ -938,17 +890,12 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
         # BitField tracks reachable positions (all start reachable)
         var bitfield = BitField(len(text) + 1)
 
-        # Find first longest match (DAT or ByteTrie based on config)
+        # Find first longest match via ByteTrie
         var next_token: Int
         var next_token_len: Int
-        if self._use_dat:
-            var dat_result = self._vocab_dat.lookup_at_offset(text, 0)
-            next_token = dat_result.token_id
-            next_token_len = dat_result.match_length
-        else:
-            var trie_result = self._vocab_trie.lookup_at_offset(text, 0)
-            next_token = trie_result.token_id
-            next_token_len = trie_result.match_length
+        var trie_result = self._vocab_trie.lookup_at_offset(text, 0)
+        next_token = trie_result.token_id
+        next_token_len = trie_result.match_length
         var pos = 0
 
         # Main encoding loop
@@ -971,21 +918,15 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
                         next_token = -1
                         break
 
-                    if self._use_dat:
-                        var dat_result = self._vocab_dat.lookup_at_offset(text, pos)
-                        next_token = dat_result.token_id
-                        next_token_len = dat_result.match_length
-                    else:
-                        var trie_result = self._vocab_trie.lookup_at_offset(text, pos)
-                        next_token = trie_result.token_id
-                        next_token_len = trie_result.match_length
+                    trie_result = self._vocab_trie.lookup_at_offset(text, pos)
+                    next_token = trie_result.token_id
+                    next_token_len = trie_result.match_length
                     break
                 else:
                     # Try shorter prefix token
                     var shorter = self.vocab.get_next_prefix(token)
                     if shorter >= 0:
                         token = shorter
-                        # Get token length (O(1) pre-computed lookup)
                         token_len = self.vocab.get_token_len(token)
                     else:
                         # No shorter prefix - must backtrack
@@ -1005,561 +946,3 @@ struct BPETokenizer(Tokenizer, Copyable, Movable):
                         break
 
         return tokens^
-
-    fn _backtrack_encode_slice(
-        self, data_ptr: UnsafePointer[UInt8], start: Int, end: Int
-    ) -> List[Int]:
-        """
-        Zero-copy backtrack encoding of a byte slice.
-
-        This is the fastest encoding path - works directly with byte pointers
-        without any allocation. Used by fused pretokenize+encode.
-
-        Optimization: Uses DAT for 2-3x faster lookup when _use_dat is True.
-
-        Args:
-            data_ptr: Pointer to the full text bytes.
-            start: Start offset of the piece.
-            end: End offset of the piece (exclusive).
-
-        Returns:
-            List of token IDs.
-        """
-        var piece_len = end - start
-        var tokens = List[Int](capacity=piece_len // 3 + 1)
-
-        if piece_len == 0:
-            return tokens^
-
-        # BitField tracks reachable positions
-        var bitfield = BitField(piece_len + 1)
-
-        # Find first longest match (DAT or ByteTrie based on config)
-        var next_token: Int
-        var next_token_len: Int
-        if self._use_dat:
-            var dat_result = self._vocab_dat.lookup_slice(data_ptr, start, end, 0)
-            next_token = dat_result.token_id
-            next_token_len = dat_result.match_length
-        else:
-            var trie_result = self._vocab_trie.lookup_slice(data_ptr, start, end, 0)
-            next_token = trie_result.token_id
-            next_token_len = trie_result.match_length
-        var pos = 0
-
-        # Main encoding loop
-        while next_token >= 0:
-            var token = next_token
-            var token_len = next_token_len
-
-            while True:
-                var end_pos = pos + token_len
-
-                if bitfield.is_set(end_pos):
-                    # Accept this token
-                    tokens.append(token)
-                    pos = end_pos
-
-                    # Find next longest match
-                    if pos >= piece_len:
-                        next_token = -1
-                        break
-
-                    if self._use_dat:
-                        var dat_result = self._vocab_dat.lookup_slice(data_ptr, start, end, pos)
-                        next_token = dat_result.token_id
-                        next_token_len = dat_result.match_length
-                    else:
-                        var trie_result = self._vocab_trie.lookup_slice(data_ptr, start, end, pos)
-                        next_token = trie_result.token_id
-                        next_token_len = trie_result.match_length
-                    break
-                else:
-                    # Try shorter prefix token
-                    var shorter = self.vocab.get_next_prefix(token)
-                    if shorter >= 0:
-                        token = shorter
-                        token_len = self.vocab.get_token_len(token)
-                    else:
-                        # Must backtrack
-                        bitfield.clear(pos)
-                        if len(tokens) > 0:
-                            var popped = tokens.pop()
-                            var popped_len = self.vocab.get_token_len(popped)
-                            pos -= popped_len
-                            next_token = popped
-                            next_token_len = popped_len
-                        else:
-                            next_token = -1
-                        break
-
-        return tokens^
-
-    fn encode_fused(mut self, text: String) raises -> List[Int]:
-        """
-        Fused pretokenize+encode with zero-copy piece handling.
-
-        This method combines pretokenization and encoding in a single pass,
-        eliminating the 43% overhead from piece-by-piece string allocation.
-
-        Optimization: Uses a reusable BitField to avoid 135K+ allocations.
-
-        Args:
-            text: Text to encode.
-
-        Returns:
-            Token IDs matching tiktoken output.
-        """
-        var result = List[Int]()
-
-        if len(text) == 0:
-            return result^
-
-        # Handle special tokens first
-        var segments = self.special_tokens.split_on_special(text)
-
-        # Reusable InlineBitField - uses stack storage for pieces <= 127 bytes
-        # (which covers 99%+ of pretokenizer pieces, avg length ~4.5 bytes)
-        var bitfield = InlineBitField(128)
-
-        for i in range(len(segments)):
-            var segment = segments[i].copy()
-            if segment.is_special:
-                var token_id = self.special_tokens.get_id(segment.text)
-                if token_id >= 0:
-                    result.append(token_id)
-            else:
-                # Get byte pointer for the segment
-                var seg_text = segment.text
-                var seg_bytes = seg_text.as_bytes()
-                var seg_ptr = seg_bytes.unsafe_ptr()
-                _ = len(seg_bytes)  # Mark as used
-
-                # Get piece offsets (zero-copy pretokenization)
-                var offsets = pretokenize_offsets(seg_text)
-
-                # Encode each piece directly from bytes with reusable BitField
-                for p in range(len(offsets)):
-                    var start = offsets[p].start
-                    var end = offsets[p].end
-                    var piece_tokens = self._backtrack_encode_slice_reuse(
-                        seg_ptr, start, end, bitfield
-                    )
-                    for t in range(len(piece_tokens)):
-                        result.append(piece_tokens[t])
-
-        return result^
-
-    fn _backtrack_encode_slice_reuse(
-        self,
-        data_ptr: UnsafePointer[UInt8],
-        start: Int,
-        end: Int,
-        mut bitfield: InlineBitField,
-    ) -> List[Int]:
-        """
-        Zero-copy backtrack encoding with reusable InlineBitField.
-
-        This variant avoids BitField allocation by reusing an existing one.
-        The InlineBitField uses stack storage for pieces <= 127 bytes.
-
-        Args:
-            data_ptr: Pointer to the full text bytes.
-            start: Start offset of the piece.
-            end: End offset of the piece (exclusive).
-            bitfield: Reusable BitField (will be reset).
-
-        Returns:
-            List of token IDs.
-        """
-        var piece_len = end - start
-        var tokens = List[Int](capacity=piece_len // 3 + 1)
-
-        if piece_len == 0:
-            return tokens^
-
-        # Reset BitField for this piece (reuses storage)
-        bitfield.reset(piece_len + 1)
-
-        # Find first longest match (DAT or ByteTrie based on config)
-        var next_token: Int
-        var next_token_len: Int
-        if self._use_dat:
-            var dat_result = self._vocab_dat.lookup_slice(data_ptr, start, end, 0)
-            next_token = dat_result.token_id
-            next_token_len = dat_result.match_length
-        else:
-            var trie_result = self._vocab_trie.lookup_slice(data_ptr, start, end, 0)
-            next_token = trie_result.token_id
-            next_token_len = trie_result.match_length
-        var pos = 0
-
-        # Main encoding loop
-        while next_token >= 0:
-            var token = next_token
-            var token_len = next_token_len
-
-            while True:
-                var end_pos = pos + token_len
-
-                if bitfield.is_set(end_pos):
-                    # Accept this token
-                    tokens.append(token)
-                    pos = end_pos
-
-                    # Find next longest match
-                    if pos >= piece_len:
-                        next_token = -1
-                        break
-
-                    if self._use_dat:
-                        var dat_result = self._vocab_dat.lookup_slice(data_ptr, start, end, pos)
-                        next_token = dat_result.token_id
-                        next_token_len = dat_result.match_length
-                    else:
-                        var trie_result = self._vocab_trie.lookup_slice(data_ptr, start, end, pos)
-                        next_token = trie_result.token_id
-                        next_token_len = trie_result.match_length
-                    break
-                else:
-                    # Try shorter prefix token
-                    var shorter = self.vocab.get_next_prefix(token)
-                    if shorter >= 0:
-                        token = shorter
-                        token_len = self.vocab.get_token_len(token)
-                    else:
-                        # Must backtrack
-                        bitfield.clear(pos)
-                        if len(tokens) > 0:
-                            var popped = tokens.pop()
-                            var popped_len = self.vocab.get_token_len(popped)
-                            pos -= popped_len
-                            next_token = popped
-                            next_token_len = popped_len
-                        else:
-                            next_token = -1
-                        break
-
-        return tokens^
-
-    # Phase C: Heap-based BPE management methods
-
-    fn set_heap_bpe_enabled(mut self, enabled: Bool):
-        """Enable or disable O(n log n) heap-based BPE.
-
-        When enabled, cache misses use heap-based merge selection instead
-        of scanning all pairs. This reduces complexity from O(n²m) to O(n log n)
-        where n = token count and m = number of merges.
-
-        Args:
-            enabled: Whether to enable heap-based BPE.
-        """
-        self._use_heap_bpe = enabled
-
-    fn is_heap_bpe_enabled(self) -> Bool:
-        """Check if heap-based BPE is enabled."""
-        return self._use_heap_bpe
-
-    # =========================================================================
-    # Phase 5: Parallel Encoding (based on rs-bpe smart batching)
-    # =========================================================================
-
-    fn encode_single_parallel(
-        mut self, text: String, num_chunks: Int = 8
-    ) raises -> List[Int]:
-        """
-        Encode text using parallel processing.
-
-        Recommended for texts >64KB. Uses smart batching of pretokenizer
-        words into chunks for parallel encoding.
-
-        Based on rs-bpe optimization that achieves 40-50% speedup by batching
-        pretokenizer pieces into 8 chunks instead of parallelizing per-piece.
-
-        Args:
-            text: Text to encode.
-            num_chunks: Number of parallel chunks (default: 8, optimal for M3 Ultra).
-
-        Returns:
-            Same tokens as encode() - 100% correctness guaranteed.
-
-        Note:
-            For texts <64KB, overhead may exceed benefit. Use encode() instead.
-            Cache is disabled during parallel encoding to ensure thread safety.
-        """
-        var result = List[Int]()
-
-        if len(text) == 0:
-            return result^
-
-        # Handle special tokens first (sequential - typically few segments)
-        var segments = self.special_tokens.split_on_special(text)
-
-        for i in range(len(segments)):
-            var segment = segments[i].copy()
-            if segment.is_special:
-                var token_id = self.special_tokens.get_id(segment.text)
-                if token_id >= 0:
-                    result.append(token_id)
-            else:
-                # Encode ordinary text with parallel processing
-                var token_ids = self._encode_ordinary_parallel(
-                    segment.text, num_chunks
-                )
-                for j in range(len(token_ids)):
-                    result.append(token_ids[j])
-
-        return result^
-
-    fn _encode_ordinary_parallel(
-        mut self, text: String, num_chunks: Int
-    ) raises -> List[Int]:
-        """
-        Encode ordinary (non-special) text using parallel piece-chunk processing.
-
-        Uses pretokenizer to split text at token-safe boundaries (cl100k_base pattern).
-        Each piece encodes independently, enabling correct parallel encoding.
-
-        For tiktoken mode: Pretokenize → batch pieces → backtrack encode each chunk
-        For standard mode: Pretokenize → batch pieces → BPE encode each chunk
-
-        Thread safety: Cache is disabled during parallel execution.
-        """
-        var result = List[Int]()
-
-        if len(text) == 0:
-            return result^
-
-        # Use pretokenizer to get token-safe pieces
-        # This enables parallel encoding with 100% correctness
-        var pieces = pretokenize(text)
-        var num_pieces = len(pieces)
-
-        # Fallback to sequential for small inputs (overhead > benefit)
-        if num_pieces < 100 or num_chunks <= 1:
-            # Encode each piece using appropriate method
-            if self._use_backtrack and self.vocab.has_backtrack_tables():
-                for i in range(num_pieces):
-                    var piece = pieces[i]
-                    var piece_bytes = piece.as_bytes()
-                    var byte_list = List[UInt8](capacity=len(piece_bytes))
-                    for j in range(len(piece_bytes)):
-                        byte_list.append(piece_bytes[j])
-                    var piece_tokens = self._backtrack_encode_direct(byte_list)
-                    for j in range(len(piece_tokens)):
-                        result.append(piece_tokens[j])
-            else:
-                for i in range(num_pieces):
-                    var piece_tokens = self._encode_word(pieces[i])
-                    for j in range(len(piece_tokens)):
-                        result.append(piece_tokens[j])
-            return result^
-
-        # Pre-convert all pieces to byte lists (preparation for parallel encoding)
-        # Use memcpy for efficient byte copying
-        var piece_bytes_list = List[List[UInt8]](capacity=num_pieces)
-        for i in range(num_pieces):
-            var piece = pieces[i]
-            var piece_bytes = piece.as_bytes()
-            var piece_len = len(piece_bytes)
-            var byte_list = List[UInt8](capacity=piece_len)
-            byte_list.resize(piece_len, 0)
-            memcpy(byte_list.unsafe_ptr(), piece_bytes.unsafe_ptr(), piece_len)
-            piece_bytes_list.append(byte_list^)
-
-        # Calculate chunk boundaries
-        var chunk_size = (num_pieces + num_chunks - 1) // num_chunks
-
-        # Pre-allocate results storage for each chunk
-        var chunk_results = List[List[Int]](capacity=num_chunks)
-        for _ in range(num_chunks):
-            chunk_results.append(List[Int]())
-
-        # Encode chunks using parallelize
-        # Each chunk processes a range of pieces independently
-        @parameter
-        fn encode_chunk(chunk_idx: Int):
-            var start_idx = chunk_idx * chunk_size
-            var end_idx = min(start_idx + chunk_size, num_pieces)
-
-            if start_idx >= num_pieces:
-                return
-
-            # Encode this chunk's pieces
-            var chunk_tokens = List[Int]()
-            for piece_idx in range(start_idx, end_idx):
-                var piece_tokens = self._backtrack_encode_direct(piece_bytes_list[piece_idx])
-                for j in range(len(piece_tokens)):
-                    chunk_tokens.append(piece_tokens[j])
-
-            chunk_results[chunk_idx] = chunk_tokens^
-
-        # Execute in parallel
-        parallelize[encode_chunk](num_chunks)
-
-        # Concatenate results in order
-        for chunk_idx in range(num_chunks):
-            for j in range(len(chunk_results[chunk_idx])):
-                result.append(chunk_results[chunk_idx][j])
-
-        return result^
-
-    fn _backtrack_encode_parallel(
-        mut self, text: String, num_chunks: Int
-    ) raises -> List[Int]:
-        """
-        Parallel backtracking encoder for tiktoken mode.
-
-        Splits text at safe byte boundaries (spaces, newlines) to ensure
-        correct tokenization across chunk boundaries.
-        """
-        var result = List[Int]()
-        var text_len = len(text)
-
-        if text_len == 0:
-            return result^
-
-        # Fallback to sequential for small texts
-        if text_len < 1000 or num_chunks <= 1:
-            var text_bytes = text.as_bytes()
-            var byte_list = List[UInt8](capacity=len(text_bytes))
-            for i in range(len(text_bytes)):
-                byte_list.append(text_bytes[i])
-            return self._backtrack_encode_direct(byte_list)
-
-        # Split text at safe boundaries
-        var chunks = self._split_text_at_boundaries(text, num_chunks)
-        var actual_chunks = len(chunks)
-
-        # Pre-allocate results
-        var chunk_results = List[List[Int]](capacity=actual_chunks)
-        for _ in range(actual_chunks):
-            chunk_results.append(List[Int]())
-
-        # Encode chunks (sequential for now - true parallelism requires Mojo updates)
-        for chunk_idx in range(actual_chunks):
-            var chunk_text = chunks[chunk_idx]
-            var chunk_bytes = chunk_text.as_bytes()
-            var byte_list = List[UInt8](capacity=len(chunk_bytes))
-            for i in range(len(chunk_bytes)):
-                byte_list.append(chunk_bytes[i])
-
-            var chunk_tokens = self._backtrack_encode_direct(byte_list)
-            chunk_results[chunk_idx] = chunk_tokens^
-
-        # Concatenate results
-        for chunk_idx in range(actual_chunks):
-            var chunk_tokens = chunk_results[chunk_idx].copy()
-            for j in range(len(chunk_tokens)):
-                result.append(chunk_tokens[j])
-
-        return result^
-
-    fn _split_text_at_boundaries(
-        self, text: String, num_chunks: Int
-    ) -> List[String]:
-        """
-        Split text at safe byte boundaries for parallel encoding.
-
-        Safe boundaries are spaces (0x20), newlines (0x0A), and tabs (0x09).
-        This ensures tokens don't span chunk boundaries incorrectly.
-        """
-        var chunks = List[String]()
-        var text_len = len(text)
-
-        if text_len == 0:
-            return chunks^
-
-        var chunk_size = text_len // num_chunks
-        if chunk_size < 100:
-            # Text too small for meaningful chunking
-            chunks.append(text)
-            return chunks^
-
-        var ptr = text.unsafe_ptr()
-        var start = 0
-
-        for _ in range(num_chunks - 1):
-            var target_end = start + chunk_size
-
-            # Don't go past text end
-            if target_end >= text_len:
-                break
-
-            # Find next safe boundary (space, newline, tab)
-            var end = target_end
-            while end < text_len:
-                var byte_val = ptr[end]
-                # Space (0x20), newline (0x0A), tab (0x09), carriage return (0x0D)
-                if byte_val == 0x20 or byte_val == 0x0A or byte_val == 0x09 or byte_val == 0x0D:
-                    break
-                end += 1
-
-            # If we couldn't find a boundary, look backwards
-            if end >= text_len:
-                end = target_end
-                while end > start:
-                    var byte_val = ptr[end]
-                    if byte_val == 0x20 or byte_val == 0x0A or byte_val == 0x09 or byte_val == 0x0D:
-                        break
-                    end -= 1
-
-                # If still no boundary found, just use target
-                if end <= start:
-                    end = target_end
-
-            # Add chunk (include the boundary character in this chunk)
-            if end > start:
-                chunks.append(String(text[start:end + 1]))
-                start = end + 1
-
-        # Add final chunk
-        if start < text_len:
-            chunks.append(String(text[start:text_len]))
-
-        return chunks^
-
-    fn encode_batch_parallel(
-        mut self, texts: List[String], num_chunks: Int = 8
-    ) raises -> List[List[Int]]:
-        """
-        Encode multiple texts in parallel.
-
-        Parallelizes across texts rather than within each text.
-        Useful when processing many independent documents.
-
-        Args:
-            texts: List of input texts to tokenize.
-            num_chunks: Number of parallel workers (default: 8).
-
-        Returns:
-            List of token ID lists, one per input text.
-        """
-        var num_texts = len(texts)
-        var results = List[List[Int]](capacity=num_texts)
-
-        if num_texts == 0:
-            return results^
-
-        # For small batches, use sequential processing
-        if num_texts < num_chunks or num_chunks <= 1:
-            for i in range(num_texts):
-                results.append(self.encode(texts[i]))
-            return results^
-
-        # Pre-allocate result slots
-        for _ in range(num_texts):
-            results.append(List[Int]())
-
-        # Save cache state and disable for thread safety
-        var cache_was_enabled = self._use_cache
-        self._use_cache = False
-
-        # Process texts (sequential for now - true parallelism requires Mojo updates)
-        for i in range(num_texts):
-            results[i] = self.encode(texts[i])
-
-        # Restore cache state
-        self._use_cache = cache_was_enabled
-
-        return results^

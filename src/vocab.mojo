@@ -267,6 +267,25 @@ struct Vocabulary(Copyable, Movable):
     # Backtracking support methods (Phase B optimization)
     # =========================================================================
 
+    fn get_token_len(self, token_id: Int) -> Int:
+        """Get the byte length of a token by its ID.
+
+        Uses pre-stored raw bytes if available (tiktoken format),
+        otherwise falls back to UTF-8 encoded string length.
+
+        Args:
+            token_id: The token ID.
+
+        Returns:
+            The byte length of the token, or 0 if not found.
+        """
+        if token_id >= 0 and token_id < len(self._id_to_bytes):
+            return len(self._id_to_bytes[token_id])
+        var text = self.get_text(token_id)
+        if len(text) > 0:
+            return len(text.as_bytes())
+        return 0
+
     fn has_backtrack_tables(self) -> Bool:
         """Check if backtracking tables have been built."""
         return self._backtrack_tables_built
