@@ -29,6 +29,6 @@ mojo = "0.26.2.*"
 [environments]
 #default = { features = ["dev"], solve-group = "default" }
 
-#dev     = { features = ["dev"], solve-group = "default" }
+dev     = { features = ["dev"], solve-group = "default" }
 
 default = { features = ["dev"] }
