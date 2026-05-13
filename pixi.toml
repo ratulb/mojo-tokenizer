@@ -6,10 +6,17 @@ authors = ["Atsentia"]
 #channels = ["conda-forge", "https://conda.modular.com/max"]
 channels = ["https://conda.modular.com/max-nightly", "conda-forge"]
 platforms = ["linux-64"]
+
+preview = ["pixi-build"]
+
 [package]
 name = "mojo-tokenizer"
-#version = "0.1.0"
+version = "0.1.0"
 #build = "mojo package src -o lib/mojo_tokenizer.mojopkg"
+
+[package.build]
+backend = { name = "pixi-build-rattler-build", version = "*" }
+
 [tasks]
 test = "mojo run -I lib tests/test_tokenizer.mojo"
 build = "mojo package src -o lib/mojo_tokenizer.mojopkg"
@@ -22,3 +29,5 @@ mojo = "0.26.2.*"
 [environments]
 default = { features = ["dev"], solve-group = "default" }
 dev     = { features = ["dev"], solve-group = "default" }
+
+#default = { features = ["dev"] }
