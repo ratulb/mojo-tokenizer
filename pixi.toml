@@ -19,4 +19,6 @@ example = "mojo run examples/basic_usage.mojo"
 [dependencies]
 mojo = "0.26.2.*"
 
-
+[environments]
+default = { features = ["dev"], solve-group = "default" }
+dev     = { features = ["dev"], solve-group = "default" }
