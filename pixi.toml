@@ -17,8 +17,8 @@ backend = { name = "pixi-build-mojo", version = "*" }
 #[package.host-dependencies]
 #mojo-compiler = "*"
 
-#[package.build-dependencies]
-#mojo-compiler = "*"
+[package.build-dependencies]
+mojo-compiler = "*"
 
 #[package.run-dependencies]
 #mojo-compiler = "*"
