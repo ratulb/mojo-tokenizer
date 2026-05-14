@@ -14,18 +14,17 @@ version = "0.1.0"
 [package.build]
 backend = { name = "pixi-build-mojo", version = "*" }
 
-#[package.host-dependencies]
-#mojo-compiler = "*"
+[package.host-dependencies]
+mojo-compiler = "=0.26.2"
 
 [package.build-dependencies]
-mojo-compiler = "*"
+mojo-compiler = "=0.26.2"
 
-#[package.run-dependencies]
-#mojo-compiler = "*"
+[package.run-dependencies]
+mojo-compiler = "=0.26.2"
 
 [dependencies]
-#mojo-compiler = "*"
-#mojo = "0.26.2.*"
+mojo-compiler = "=0.26.2"
 mojo = "==0.26.2"
 
 [tasks]
