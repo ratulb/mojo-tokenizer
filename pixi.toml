@@ -26,6 +26,7 @@ mojo-compiler = "=0.26.2"
 [dependencies]
 mojo-compiler = "=0.26.2"
 mojo = "==0.26.2"
+mojo-tokenizer = { path = "." }
 
 [tasks]
 test    = "mojo run -I lib tests/test_tokenizer.mojo"
