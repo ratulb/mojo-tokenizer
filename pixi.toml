@@ -30,6 +30,6 @@ mojo = "==0.26.2"
 
 [tasks]
 test    = "mojo run -I lib tests/test_tokenizer.mojo"
-build   = "mojo package src -o lib/mojo_tokenizer.mojopkg"
+#build   = "mojo package src -o lib/mojo_tokenizer.mojopkg"
 format  = "mojo format src/"
 example = "mojo run examples/basic_usage.mojo"
